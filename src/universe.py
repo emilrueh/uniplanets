@@ -30,7 +30,7 @@ class Planet:
         self._color_was_changed = False
 
     def draw(self, screen: Surface):
-        self._update_rotation()
+        self._update_light()
         self._draw_sphere(display=screen)
 
         if self.color_mode == "change":
@@ -95,7 +95,7 @@ class Planet:
 
         display.blit(sphere_surface, (self.position.x - self.radius, self.position.y - self.radius))
 
-    def _update_rotation(self) -> Light:
+    def _update_light(self) -> Light:
         self.angle -= self.speed  # Increment angle
         if self.angle <= -2 * pi:
             self.angle += 2 * pi  # Wrap around after full circle
