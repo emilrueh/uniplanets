@@ -20,6 +20,7 @@ class Planet:
         color_mode: Literal["solid", "change"] = "solid",
         lighting_speed: float = 0.1,
         rotation_speed: float = 0.1,
+        rotation_direction: Literal["left", "right"] = "left",
     ):
         # display
         self.radius = radius
@@ -32,6 +33,7 @@ class Planet:
         self.lighting_speed = lighting_speed
         self._light = Light
         # rotation
+        self.rotation_direction = rotation_direction
         self.rotation_speed = rotation_speed
         self.y = 0
         # level of detail
@@ -86,7 +88,10 @@ class Planet:
         return rotated_x, rotated_y, rotated_z
 
     def _update_rotation(self):
-        self.y += self.rotation_speed
+        if self.rotation_direction == "left":
+            self.y += self.rotation_speed
+        else:
+            self.y -= self.rotation_speed
         # stabilize angles between [0, 2pi]
         self.y %= 2 * pi
 

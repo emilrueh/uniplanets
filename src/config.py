@@ -14,6 +14,7 @@ background_color = pick_color("black")
 # planet settings
 lighting_speed = 0.01
 rotation_speed = 0.01
+rotation_direction = "left"
 starting_angle = 0  # dark
 level_of_detail = 1
 color_mode = "change"  # "solid", "change"
