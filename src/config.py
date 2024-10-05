@@ -15,7 +15,7 @@ background_color = pick_color("black")
 lighting_speed = 0.01
 rotation_speed = 0.01
 rotation_direction = "left"
-starting_angle = 0  # dark
+starting_angle = 1.5  # dark: 1.5, light: -1.5
 level_of_detail = 1
 color_mode = "change"  # "solid", "change"
 terrains = {
@@ -27,8 +27,12 @@ terrains = {
         Terrain(name="forest", color=RGB(84, 161, 109), threshold=float("inf")),
     ],
     "moon": [
-        Terrain(name="dust", color=RGB(65, 70, 73), threshold=0.6),
-        Terrain(name="rim", color=RGB(45, 48, 51), threshold=0.65),
+        Terrain(name="dust", color=RGB(65, 70, 73), threshold=0.4),
+        Terrain(name="rim", color=RGB(45, 48, 51), threshold=0.7),
         Terrain(name="crater", color=RGB(32, 34, 35), threshold=float("inf")),
+    ],
+    "mars": [
+        Terrain(name="desert", color=RGB(160, 80, 43), threshold=0.6),
+        Terrain(name="mountain", color=RGB(214, 133, 83), threshold=float("inf")),
     ],
 }
