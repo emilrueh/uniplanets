@@ -36,6 +36,36 @@ class Planet:
         if self.color_mode == "change":
             self._change_color_when_dark()
 
+    @staticmethod
+    def _gen_texture(normal_values: tuple, light_power: float):
+        # Noise for terrain:
+        norm_x = normal_values[0]
+        norm_y = normal_values[1]
+        norm_z = normal_values[2]
+
+        terrain_value = 0.5 * opensimplex.noise3(norm_x, norm_y, norm_z)
+        # terrain_value += (0.25 * opensimplex.noise3(norm_x * 4, norm_y * 4, norm_z * 4) + 1) / 2
+        # terrain_value += (0.125 * opensimplex.noise3(norm_x * 8, norm_y * 8, norm_z * 8) + 1) / 2
+        # terrain_value += (0.125 * opensimplex.noise3(norm_x * 16, norm_y * 16, norm_z * 16) + 1) / 2
+
+        if terrain_value > 0.2:
+            color = RGB(50, 20, 2)  # mountain (brown)
+        elif terrain_value > 0:
+            color = RGB(20, 100, 0)  # land (green)
+        elif terrain_value > -0.02:
+            color = RGB(255, 255, 128)  # coast (yellow)
+        else:
+            color = RGB(0, 40, 200)  # water (blue)
+
+        # Mix the base color and terrain color based on lighting
+        r = min(int(color.r * light_power), 255)
+        g = min(int(color.g * light_power), 255)
+        b = min(int(color.b * light_power), 255)
+        a = 255
+
+        texture = (r, g, b, a)
+        return texture
+
     def _draw_sphere(self, display: Surface):
         radius_sq = self.radius * self.radius
         inv_radius = 1 / self.radius
@@ -59,27 +89,7 @@ class Planet:
 
                 light_power = max(norm_x * light_dir_x + norm_y * light_dir_y + norm_z * light_dir_z, 0) * self._light.intensity
 
-                # Noise for terrain
-                terrain_value = opensimplex.noise3(norm_x, norm_y, norm_z)
-
-                # Determine terrain color based on noise value
-                if terrain_value > 0.2:
-                    # For example, > 0.2 is grass
-                    color = pick_color("yellow")
-                elif terrain_value > -0.1:
-                    # Between -0.1 and 0.2 is dirt
-                    color = pick_color("green")
-                else:
-                    # less than -0.1 is water
-                    color = pick_color("blue")
-
-                # Mix the base color and terrain color based on lighting
-                r = min(int(color.r * light_power * 0.5), 255)
-                g = min(int(color.g * light_power * 0.5), 255)
-                b = min(int(color.b * light_power * 0.5), 255)
-                a = 255
-
-                texture = (r, g, b, a)
+                texture = self._gen_texture((norm_x, norm_y, norm_z), light_power)
 
                 sphere_surface.set_at((x + self.radius, y + self.radius), texture)
 
