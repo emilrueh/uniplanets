@@ -26,8 +26,7 @@ class Planet:
         self.position = Vector(x=position[0], y=position[1])
         self.light_angle = starting_angle
         # appearance
-        self.terrains = terrains if terrains else self._default_terrains()
-        self.lod = level_of_detail
+        self.terrains = terrains if terrains else self._get_default_terrains()
         self.color_mode = color_mode
         # light
         self.lighting_speed = lighting_speed
@@ -35,6 +34,8 @@ class Planet:
         # rotation
         self.rotation_speed = rotation_speed
         self.y = 0
+        # level of detail
+        self._lod_frequencies, self._lod_weights = self._calc_lod(level_of_detail)
         # etc
         self._color_was_changed = False
 
@@ -91,32 +92,36 @@ class Planet:
 
     # texture
 
-    def _default_terrains(self):
+    def _get_default_terrains(self):
         return [
-            Terrain(name="water", color=RGB(21, 97, 178), threshold=0.55),
-            Terrain(name="coast", color=RGB(252, 252, 159), threshold=0.57),
-            Terrain(name="land", color=RGB(73, 150, 78), threshold=0.65),
-            Terrain(name="mountains", color=RGB(112, 83, 65), threshold=0.71),
+            Terrain(name="water", color=RGB(21, 97, 178), threshold=0.59),
+            Terrain(name="coast", color=RGB(252, 252, 159), threshold=0.6),
+            Terrain(name="land", color=RGB(73, 150, 78), threshold=0.7),
+            Terrain(name="mountains", color=RGB(112, 83, 65), threshold=0.8),
             Terrain(name="glacier", color=RGB(255, 255, 255), threshold=float("inf")),
         ]
+
+    @staticmethod
+    def _calc_lod(lod: int):
+        # Generate frequencies for specified level of detail
+        frequencies = [2**i for i in range(1, lod + 1)]
+        # Calculate initial weights
+        weights = [1.0 / (2**i) for i in range(lod)]
+        # Normalize weights so they sum up to 1
+        total_weight = sum(weights)
+        weights = [w / total_weight for w in weights]
+        return frequencies, weights
 
     def _gen_texture(self, normal_values: tuple, light_power: float):
         norm_x, norm_y, norm_z = normal_values
 
-        # Frequencies and weights for each pass
-        frequencies = [1, 2, 4, 8, 16, 32, 64]  # Increasing frequencies for detail
+        terrain_value = 0
+        for i in range(len(self._lod_frequencies)):
+            noise = opensimplex.noise3(norm_x * self._lod_frequencies[i], norm_y * self._lod_frequencies[i], norm_z * self._lod_frequencies[i])
+            terrain_value += self._lod_weights[i] * noise
 
-        # Dynamically calculate weights
-        weights = [1.0 / (2**i) for i in range(self.lod)]
-        weights = [w / sum(weights) for w in weights]
-
-        passes = min(self.lod, len(frequencies))  # Ensure the lod doesn't exceed available frequencies and weights
-        terrain_value = 0  # Initialize terrain value
-        for i in range(passes):
-            noise = opensimplex.noise3(norm_x * frequencies[i], norm_y * frequencies[i], norm_z * frequencies[i])
-            terrain_value += weights[i] * noise
-
-        terrain_value = (terrain_value + 1) / 2  # Normalize range from [-1, 1] to [0, 1]
+        # Normalize range from [-1, 1] to [0, 1]
+        terrain_value = (terrain_value + 1) / 2
 
         # Determine color based on standardized terrain thresholds
         color = RGB(0, 0, 0)
