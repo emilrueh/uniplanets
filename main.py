@@ -1,3 +1,7 @@
+import os
+
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+
 import pygame as pg
 from src.config import screen_width, screen_height, fps, display_caption, background_color
 
