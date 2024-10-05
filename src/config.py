@@ -2,7 +2,7 @@ from src.utils import pick_color
 
 
 # display settings
-resolution, upscale = "1920x1080", 0.2
+resolution, upscale = "1920x1080", 0.1
 fps = 18
 
 screen_width, screen_height = int(int(resolution.split("x")[0]) * upscale), int(int(resolution.split("x")[-1]) * upscale)
@@ -12,6 +12,7 @@ display_caption = "Planets"
 background_color = pick_color("black")
 
 # planet settings
+lighting_speed = 0.1
 rotation_speed = 0.1
 starting_angle = 1.5  # dark
-color_mode = "solid"  # "solid", "change"
+color_mode = "change"  # "solid", "change"
