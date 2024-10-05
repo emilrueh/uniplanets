@@ -5,11 +5,12 @@ os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 import pygame as pg
 from src.config import screen_width, screen_height, fps, display_caption, background_color
 
-from src.assets import earth
+from src.assets import earth, moon
 
 
 def content(screen: pg.Surface):
     earth.draw(screen)
+    moon.draw(screen)
 
 
 def gameloop():
