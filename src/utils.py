@@ -40,6 +40,13 @@ def pick_random_color():
     return pick_color(RGB(r=randint(0, 255), g=randint(0, 255), b=randint(0, 255)))
 
 
+@dataclass
+class Terrain:
+    name: str
+    color: RGB
+    threshold: float
+
+
 class Vector:
     def __init__(self, x=0, y=0, z=0):
         self.x = x

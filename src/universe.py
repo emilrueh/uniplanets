@@ -1,4 +1,4 @@
-from src.utils import RGB, Light, Vector, pick_color, pick_random_color
+from src.utils import RGB, Terrain, Light, Vector, pick_color, pick_random_color
 from pygame import Surface, SRCALPHA
 from math import sqrt, pi, cos, sin
 import numpy as np
@@ -15,15 +15,19 @@ class Planet:
         radius: int = 50,
         position: tuple = (10, 10),
         starting_angle: float = 1.5,
-        color: RGB | Literal["red", "green", "blue", "yellow", "magenta", "cyan", "white", "black"] = None,
+        terrains: list[Terrain] = None,
+        level_of_detail: Literal[1, 2, 3, 4] = 2,
         color_mode: Literal["solid", "change"] = "solid",
         lighting_speed: float = 0.1,
         rotation_speed: float = 0.1,
     ):
+        # display
         self.radius = radius
         self.position = Vector(x=position[0], y=position[1])
         self.light_angle = starting_angle
-        self.color = pick_color(color) if color else self._get_random_rgb()
+        # appearance
+        self.terrains = terrains if terrains else self._default_terrains()
+        self.lod = level_of_detail
         self.color_mode = color_mode
         # light
         self.lighting_speed = lighting_speed
@@ -39,8 +43,8 @@ class Planet:
         self._update_rotation()
         self._draw_sphere(display=screen)
 
-        if self.color_mode == "change":
-            self._change_color_when_dark()
+        # if self.color_mode == "change":
+        #     self._change_color_when_dark()
 
     # light
 
@@ -54,12 +58,12 @@ class Planet:
         light_direction = Vector(cos(self.light_angle), 0, sin(self.light_angle))
         self._light = Light(light_direction, 1.0)
 
-    def _change_color_when_dark(self):
-        is_dark = -4.9 < self.light_angle < -4.6
+    # def _change_color_when_dark(self):
+    #     is_dark = -4.9 < self.light_angle < -4.6
 
-        if is_dark and not self._color_was_changed:
-            self.color = pick_random_color()
-            self._color_was_changed = True
+    #     if is_dark and not self._color_was_changed:
+    #         self.color = pick_random_color()
+    #         self._color_was_changed = True
 
     # rotation
 
@@ -87,28 +91,41 @@ class Planet:
 
     # texture
 
-    @staticmethod
-    def _gen_texture(normal_values: tuple, light_power: float):
-        norm_x = normal_values[0]
-        norm_y = normal_values[1]
-        norm_z = normal_values[2]
+    def _default_terrains(self):
+        return [
+            Terrain(name="water", color=RGB(21, 97, 178), threshold=0.5),
+            Terrain(name="coast", color=RGB(252, 252, 159), threshold=0.51),
+            Terrain(name="land", color=RGB(73, 150, 78), threshold=0.65),
+            Terrain(name="mountains", color=RGB(112, 83, 65), threshold=0.7),
+            Terrain(name="glacier", color=RGB(255, 255, 255), threshold=float("inf")),
+        ]
 
-        # terrain from noise
-        terrain_value = 0.5 * opensimplex.noise3(norm_x, norm_y, norm_z)
-        # terrain_value += (0.25 * opensimplex.noise3(norm_x * 4, norm_y * 4, norm_z * 4) + 1) / 2
-        # terrain_value += (0.125 * opensimplex.noise3(norm_x * 8, norm_y * 8, norm_z * 8) + 1) / 2
-        # terrain_value += (0.125 * opensimplex.noise3(norm_x * 16, norm_y * 16, norm_z * 16) + 1) / 2
+    def _gen_texture(self, normal_values: tuple, light_power: float):
+        norm_x, norm_y, norm_z = normal_values
 
-        if terrain_value > 0.2:
-            color = RGB(50, 20, 2)  # mountains (brown)
-        elif terrain_value > 0:
-            color = RGB(20, 100, 0)  # land (green)
-        elif terrain_value > -0.02:
-            color = RGB(255, 255, 128)  # coast (yellow)
-        else:
-            color = RGB(0, 40, 200)  # water (blue)
+        # Frequencies and weights for each pass
+        frequencies = [1, 4, 8, 16]  # Increasing frequencies for detail
+        weights = [0.5, 0.25, 0.125, 0.125]  # Weights should sum to approximately 1
 
-        # mix terrain with light for full texture
+        passes = min(self.lod, len(frequencies))  # Ensure the lod doesn't exceed available frequencies and weights
+        terrain_value = 0  # Initialize terrain value
+        for i in range(passes):
+            noise = opensimplex.noise3(norm_x * frequencies[i], norm_y * frequencies[i], norm_z * frequencies[i])
+            terrain_value += weights[i] * noise
+
+        # Normalize terrain value if necessary.
+        # The above combination will naturally be in the range [-1, 1] as long as individual noises are in [-1, 1].
+        # If your final range is off, rescale like below.
+        terrain_value = (terrain_value + 1) / 2  # Mapping range from [-1, 1] to [0, 1]
+
+        # Determine color based on standardized terrain thresholds
+        color = RGB(0, 0, 0)
+        for terrain in self.terrains:
+            if terrain_value <= terrain.threshold:
+                color = terrain.color
+                break
+
+        # Mix terrain with light for final texture
         r = min(int(color.r * light_power), 255)
         g = min(int(color.g * light_power), 255)
         b = min(int(color.b * light_power), 255)
@@ -120,6 +137,7 @@ class Planet:
     # main
 
     def _draw_sphere(self, display: Surface):
+        # setup
         radius_sq = self.radius * self.radius
         inv_radius = 1 / self.radius
 
@@ -134,6 +152,7 @@ class Planet:
 
         sphere_surface = Surface((2 * self.radius, 2 * self.radius), SRCALPHA)
 
+        # draw every pixel onto x and y radius axis
         for x, y in product(range(-self.radius, self.radius), repeat=2):
             if (x * x) + (y * y) <= radius_sq:
                 # Calculate normals
