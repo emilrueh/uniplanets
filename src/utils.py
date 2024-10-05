@@ -1,6 +1,6 @@
-import math as m
-
+from math import sqrt
 from dataclasses import dataclass
+from random import randint
 from typing import Literal
 
 
@@ -36,6 +36,10 @@ def pick_color(
     return color
 
 
+def pick_random_color():
+    return pick_color(RGB(r=randint(0, 255), g=randint(0, 255), b=randint(0, 255)))
+
+
 class Vector:
     def __init__(self, x=0, y=0, z=0):
         self.x = x
@@ -43,7 +47,7 @@ class Vector:
         self.z = z
 
     def normalize(self):
-        length = m.sqrt(self.x**2 + self.y**2 + self.z**2)
+        length = sqrt(self.x**2 + self.y**2 + self.z**2)
         if length != 0:
             self.x /= length
             self.y /= length
