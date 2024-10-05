@@ -5,6 +5,8 @@ from math import sqrt, pi, cos, sin
 from itertools import product
 from typing import Literal
 
+import opensimplex
+
 
 class Planet:
     def __init__(
@@ -57,14 +59,29 @@ class Planet:
 
                 light_power = max(norm_x * light_dir_x + norm_y * light_dir_y + norm_z * light_dir_z, 0) * self._light.intensity
 
-                shaded_color = (
-                    min(int(self.color.r * light_power), 255),
-                    min(int(self.color.g * light_power), 255),
-                    min(int(self.color.b * light_power), 255),
-                    255,
-                )
+                # Noise for terrain
+                terrain_value = opensimplex.noise3(norm_x, norm_y, norm_z)
 
-                sphere_surface.set_at((x + self.radius, y + self.radius), shaded_color)
+                # Determine terrain color based on noise value
+                if terrain_value > 0.2:
+                    # For example, > 0.2 is grass
+                    color = pick_color("yellow")
+                elif terrain_value > -0.1:
+                    # Between -0.1 and 0.2 is dirt
+                    color = pick_color("green")
+                else:
+                    # less than -0.1 is water
+                    color = pick_color("blue")
+
+                # Mix the base color and terrain color based on lighting
+                r = min(int(color.r * light_power * 0.5), 255)
+                g = min(int(color.g * light_power * 0.5), 255)
+                b = min(int(color.b * light_power * 0.5), 255)
+                a = 255
+
+                texture = (r, g, b, a)
+
+                sphere_surface.set_at((x + self.radius, y + self.radius), texture)
 
         display.blit(sphere_surface, (self.position.x - self.radius, self.position.y - self.radius))
 
