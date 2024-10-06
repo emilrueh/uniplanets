@@ -5,13 +5,12 @@ os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 import pygame as pg
 from src.config import screen_width, screen_height, fps, display_caption, background_color
 
-from src.assets import earth  # , moon, mars
+from src.assets import planet_assets
 
 
 def content(screen: pg.Surface):
-    # mars.draw(screen)
-    earth.draw(screen)
-    # moon.draw(screen)
+    for planet in planet_assets:
+        planet.draw(screen)
 
 
 def gameloop():
@@ -43,7 +42,8 @@ def gameloop():
             # Cap the frame rate
             clock.tick(fps)
     finally:
-        print(round(sum(fps_coll) / len(fps_coll), 2), "fps on average")
+        if frame_count := len(fps_coll):
+            print(round(sum(fps_coll) / frame_count, 2), "fps on average")
         pg.quit()
 
 
