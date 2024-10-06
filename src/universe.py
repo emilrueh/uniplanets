@@ -1,7 +1,6 @@
-from src.utils import RGB, Terrain, Light, Vector, pick_color, pick_random_color
+from src.utils import RGB, Terrain, Light, Vector, pick_random_color
 from pygame import Surface, SRCALPHA
 from math import sqrt, pi, cos, sin
-import numpy as np
 
 from itertools import product
 from typing import Literal
@@ -46,8 +45,8 @@ class Planet:
         self._update_rotation()
         self._draw_sphere(display=screen)
 
-        # if self.color_mode == "change":
-        #     self._change_color_when_dark()
+        if self.color_mode == "change":
+            self._change_color_when_dark()
 
     # light
 
@@ -61,12 +60,14 @@ class Planet:
         light_direction = Vector(cos(self.light_angle), 0, sin(self.light_angle))
         self._light = Light(light_direction, 1.0)
 
-    # def _change_color_when_dark(self):
-    #     is_dark = -4.9 < self.light_angle < -4.6
+    def _change_color_when_dark(self):
+        is_dark = -4.9 < self.light_angle < -4.6
 
-    #     if is_dark and not self._color_was_changed:
-    #         self.color = pick_random_color()
-    #         self._color_was_changed = True
+        if is_dark and not self._color_was_changed:
+            for terrain in self.terrains:
+                terrain.color = pick_random_color()
+
+            self._color_was_changed = True
 
     # rotation
 
