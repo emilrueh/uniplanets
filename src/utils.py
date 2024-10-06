@@ -66,27 +66,37 @@ class Vector:
 
 @dataclass
 class Lighting:
-    angle: float
-    speed: float
-    intensity: float
+    angle: float = 1.5
+    speed: float = 0.1
+    intensity: float = 1.0
     _direction: Vector = Vector(0, 0, 0)
 
 
 @dataclass
 class Rotation:
-    direction: Literal["left", "right"]
-    speed: float
-    axis: Literal["x", "y", "z"]
-    angle: float
+    direction: Literal["left", "right"] = "left"
+    speed: float = 0.1
+    axis: Literal["x", "y", "z"] = "y"
+    angle: float = 0.0
 
 
 @dataclass
 class PlanetConfig:
-    name: str
-    radius: int
-    position: Vector
-    level_of_detail: Literal[1, 2, 3, 4]
-    terrains: list[Terrain]
-    color_mode: Literal["solid", "change"]
-    lighting: Lighting
-    rotation: Rotation
+    name: str = "Earth"
+    radius: int = 10
+    position: Vector = Vector(x=10, y=10)
+    level_of_detail: Literal[1, 2, 3, 4] = 2
+    terrains: list[Terrain] = None
+    color_mode: Literal["solid", "change"] = "solid"
+    lighting: Lighting = Lighting
+    rotation: Rotation = Rotation
+
+    def __post_init__(self):
+        if not self.terrains:
+            self.terrains = [
+                Terrain(name="water", color=RGB(21, 97, 178), threshold=0.59),
+                Terrain(name="coast", color=RGB(252, 252, 159), threshold=0.6),
+                Terrain(name="land", color=RGB(73, 150, 78), threshold=0.7),
+                Terrain(name="mountains", color=RGB(112, 83, 65), threshold=0.8),
+                Terrain(name="glacier", color=RGB(255, 255, 255), threshold=float("inf")),
+            ]
