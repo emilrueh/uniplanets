@@ -77,7 +77,7 @@ class Planet:
                 [-sin(self.rotation.angle), 0, cos(self.rotation.angle)],
             ]
         else:
-            raise ValueError(f"{self.rotation.axis} rotation has not been implemented yet! Choose 'y' instead.")
+            raise ValueError(f"Rotation around the {self.rotation.axis}-axis has not been implemented yet! Choose the y-axis instead.")
         return rotation_matrix
 
     def _rotate_normal(self, norm_x, norm_y, norm_z):
@@ -90,16 +90,6 @@ class Planet:
         return rotated_x, rotated_y, rotated_z
 
     # texture
-
-    @staticmethod
-    def _get_default_terrains():
-        return [
-            Terrain(name="water", color=RGB(21, 97, 178), threshold=0.59),
-            Terrain(name="coast", color=RGB(252, 252, 159), threshold=0.6),
-            Terrain(name="land", color=RGB(73, 150, 78), threshold=0.7),
-            Terrain(name="mountains", color=RGB(112, 83, 65), threshold=0.8),
-            Terrain(name="glacier", color=RGB(255, 255, 255), threshold=float("inf")),
-        ]
 
     @staticmethod
     def _calc_lod(lod: int):
