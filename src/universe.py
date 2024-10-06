@@ -1,11 +1,19 @@
+"""
+TODO:
+- align terrain and clouds
+- clean up utils default argument mess
+- implement cloud and tectonic shifts
+- allow x and z rotation for clouds
+"""
+
 from pygame import Surface, SRCALPHA
 from math import sqrt, pi, cos, sin
 
-from src.utils import RGB, Terrain, Vector, Lighting, Rotation, PlanetConfig
+from src.utils import RGB, Terrain, Clouds, Vector, Lighting, Rotation, LevelOfDetail, PlanetConfig
 from src.utils import pick_random_color
 
 from itertools import product
-from typing import Literal
+from typing import Literal, Callable
 
 import opensimplex
 
@@ -15,25 +23,19 @@ class Planet:
         # display
         self.position = config.position
         self.radius = config.radius
-        # appearance
+        # terrain
         self.terrains = config.terrains
+        self.terrain_lod = config.terrain_lod
         self.color_mode = config.color_mode
+        # clouds
+        self.clouds = config.clouds
+        self._cloud_radius = int(self.radius * self.clouds.height)
         # lighting
         self.lighting = config.lighting
         # rotation
         self.rotation = config.rotation
-        # level of detail
-        self._lod_frequencies, self._lod_weights = self._calc_lod(config.level_of_detail)
         # etc
         self._color_was_changed = False
-
-    def draw(self, screen: Surface):
-        self._update_lighting()
-        self._update_rotation()
-        self._draw_sphere(display=screen)
-
-        if self.color_mode == "change":
-            self._change_color_when_dark()
 
     # lighting
 
@@ -91,50 +93,47 @@ class Planet:
 
     # texture
 
-    @staticmethod
-    def _calc_lod(lod: int):
-        # Generate frequencies for specified level of detail
-        frequencies = [2**i for i in range(1, lod + 1)]
-        # Calculate initial weights
-        weights = [1.0 / (2**i) for i in range(lod)]
-        # Normalize weights so they sum up to 1
-        total_weight = sum(weights)
-        weights = [w / total_weight for w in weights]
-        return frequencies, weights
+    def _build_terrain(self, noise_value):
+        # Determine color based on standardized terrain thresholds
+        for terrain in self.terrains:
+            if noise_value <= terrain.threshold:
+                return terrain.color, 255
+        return None, None
 
-    def _gen_texture(self, normal_values: tuple, lighting_power: float):
-        norm_x, norm_y, norm_z = normal_values
+    def _build_clouds(self, noise_value):
+        # Determine if a cloud is displayed based on threshold
+        if noise_value > self.clouds.threshold:
+            return self.clouds.color, self.clouds.alpha
+        return None, None
 
-        terrain_value = 0
-        for i in range(len(self._lod_frequencies)):
-            noise = opensimplex.noise3(norm_x * self._lod_frequencies[i], norm_y * self._lod_frequencies[i], norm_z * self._lod_frequencies[i])
-            terrain_value += self._lod_weights[i] * noise
+    def _gen_texture(self, normals: tuple, lighting_power: float, lod: LevelOfDetail, gen_color: Callable):
+        norm_x, norm_y, norm_z = normals
+
+        noise_value = 0
+        for i in range(lod.value):
+            noise = opensimplex.noise3(norm_x * lod.frequencies[i], norm_y * lod.frequencies[i], norm_z * lod.frequencies[i])
+            noise_value += lod.weights[i] * noise
 
         # Normalize range from [-1, 1] to [0, 1]
-        terrain_value = (terrain_value + 1) / 2
+        noise_value = (noise_value + 1) / 2
 
-        # Determine color based on standardized terrain thresholds
-        color = RGB(0, 0, 0)
-        for terrain in self.terrains:
-            if terrain_value <= terrain.threshold:
-                color = terrain.color
-                break
+        color, alpha = gen_color(noise_value)
 
-        # Mix terrain with lighting for final texture
-        r = min(int(color.r * lighting_power), 255)
-        g = min(int(color.g * lighting_power), 255)
-        b = min(int(color.b * lighting_power), 255)
-        a = 255
+        if color:
+            # Mix color with lighting for final texture
+            r = min(int(color.r * lighting_power), 255)
+            g = min(int(color.g * lighting_power), 255)
+            b = min(int(color.b * lighting_power), 255)
 
-        texture = (r, g, b, a)
-        return texture
+            return (r, g, b, alpha)
+        else:
+            return (0, 0, 0, 0)
 
     # main
 
-    def _draw_sphere(self, display: Surface):
-        # setup
-        radius_sq = self.radius * self.radius
-        inv_radius = 1 / self.radius
+    def _draw_sphere(self, display: Surface, radius: int, lod: LevelOfDetail, texture_func: Callable):
+        radius_sq = radius * radius
+        inv_radius = 1 / radius
 
         lighting_dir_x = -self.lighting._direction.x
         lighting_dir_y = -self.lighting._direction.y
@@ -145,22 +144,39 @@ class Planet:
             lighting_dir_y /= length
             lighting_dir_z /= length
 
-        sphere_surface = Surface((2 * self.radius, 2 * self.radius), SRCALPHA)
+        sphere_surface = Surface((2 * radius, 2 * radius), SRCALPHA)
 
         # draw every pixel onto x and y radius axis
-        for x, y in product(range(-self.radius, self.radius), repeat=2):
+        for x, y in product(range(-radius, radius), repeat=2):
             if (x * x) + (y * y) <= radius_sq:
                 # Calculate normals
                 norm_x = x * inv_radius
                 norm_y = y * inv_radius
                 norm_z = sqrt(max(0, 1 - (x * x + y * y) * inv_radius * inv_radius))
 
-                # Use normals for lighting
+                # Use lighting direction
                 lighting_power = max(norm_x * lighting_dir_x + norm_y * lighting_dir_y + norm_z * lighting_dir_z, 0) * self.lighting.intensity
                 # Use rotated normals for texture
                 rotated_x, rotated_y, rotated_z = self._rotate_normal(norm_x, norm_y, norm_z)
-                texture = self._gen_texture((rotated_x, rotated_y, rotated_z), lighting_power)
 
-                sphere_surface.set_at((x + self.radius, y + self.radius), texture)
+                texture = self._gen_texture(
+                    normals=(rotated_x, rotated_y, rotated_z),
+                    lighting_power=lighting_power,
+                    lod=lod,
+                    gen_color=texture_func,
+                )
 
-        display.blit(sphere_surface, (self.position.x - self.radius, self.position.y - self.radius))
+                sphere_surface.set_at((x + radius, y + radius), texture)
+        display.blit(sphere_surface, (self.position.x - radius, self.position.y - radius))
+
+    def draw(self, screen: Surface):
+        self._update_lighting()
+        self._update_rotation()
+
+        # Draw planet
+        self._draw_sphere(display=screen, radius=self.radius, lod=self.terrain_lod, texture_func=self._build_terrain)
+        # Draw clouds
+        self._draw_sphere(display=screen, radius=self._cloud_radius, lod=self.clouds.lod, texture_func=self._build_clouds)
+
+        if self.color_mode == "change":
+            self._change_color_when_dark()
