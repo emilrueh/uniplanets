@@ -9,9 +9,9 @@ from src.assets import earth, moon, mars
 
 
 def content(screen: pg.Surface):
-    mars.draw(screen)
+    # mars.draw(screen)
     earth.draw(screen)
-    moon.draw(screen)
+    # moon.draw(screen)
 
 
 def gameloop():
@@ -21,6 +21,8 @@ def gameloop():
     pg.display.set_caption(display_caption)
     screen.fill((background_color.r, background_color.g, background_color.b))
 
+    fps_coll = []
+
     try:
         # Main loop
         running = True
@@ -29,13 +31,19 @@ def gameloop():
                 if event.type == pg.QUIT:
                     running = False
 
+            # display assets
             content(screen)
+
+            # track fps average
+            if (fps_get := clock.get_fps()) > 0:
+                fps_coll.append(fps_get)
 
             # Update the display
             pg.display.flip()
             # Cap the frame rate
             clock.tick(fps)
     finally:
+        print(round(sum(fps_coll) / len(fps_coll), 2), "fps on average")
         pg.quit()
 
 
