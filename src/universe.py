@@ -49,11 +49,12 @@ class Planet:
     # light
 
     def _update_light(self):
-        self.light.angle -= self.light.speed  # Increment angle
-        if self.light.angle <= -2 * pi:
-            self.light.angle += 2 * pi  # Wrap around after full circle
-            self._color_was_changed = False
-        self.light.direction = self._compute_light_direction()
+        if self.ligh.speed > 0:
+            self.light.angle -= self.light.speed  # Increment angle
+            if self.light.angle <= -2 * pi:
+                self.light.angle += 2 * pi  # Wrap around after full circle
+                self._color_was_changed = False
+            self.light.direction = self._compute_light_direction()
 
     def _compute_light_direction(self) -> Vector:
         return Vector(cos(self.light.angle), 0, sin(self.light.angle))
@@ -70,12 +71,13 @@ class Planet:
     # rotation
 
     def _update_rotation(self):
-        if self.rotation_direction == "left":
-            self.y_axis_rotation += self.rotation_speed
-        else:
-            self.y_axis_rotation -= self.rotation_speed
-        # stabilize angles between [0, 2pi]
-        self.y_axis_rotation %= 2 * pi
+        if self.rotation_speed > 0:
+            if self.rotation_direction == "left":
+                self.y_axis_rotation += self.rotation_speed
+            else:
+                self.y_axis_rotation -= self.rotation_speed
+            # stabilize angles between [0, 2pi]
+            self.y_axis_rotation %= 2 * pi
 
     def _gen_rotation_matrix(self):
         rotation_y = [
