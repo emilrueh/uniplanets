@@ -18,7 +18,6 @@ def gameloop():
     clock = pg.time.Clock()
     screen = pg.display.set_mode((screen_width, screen_height), pg.FULLSCREEN | pg.NOFRAME | pg.SCALED)
     pg.display.set_caption(display_caption)
-    screen.fill((background_color.r, background_color.g, background_color.b))
 
     fps_coll = []
 
@@ -29,6 +28,7 @@ def gameloop():
             for event in pg.event.get():
                 if event.type == pg.QUIT:
                     running = False
+            screen.fill((background_color.r, background_color.g, background_color.b))
 
             # display assets
             content(screen)
