@@ -1,50 +1,47 @@
 from src.universe import Planet
 
-from src.config import (
-    screen_width,
-    screen_height,
-    lighting_speed,
-    rotation_speed,
-    rotation_direction,
-    starting_angle,
-    level_of_detail,
-    terrains,
-    color_mode,
-)
+from src.utils import PlanetConfig, Vector, Lighting, Rotation, Terrain
+
+from src.config import screen_width, screen_height
+from src.config import base_radius, base_position, base_lod, base_lighting, base_rotation
+from src.config import terrains
 
 
-earth = Planet(
-    radius=int(((screen_width + screen_height) // 4) * 0.6),
-    position=(screen_width // 2, screen_height // 2),
-    level_of_detail=level_of_detail,
-    terrains=terrains.get("earth"),
-    color_mode=color_mode,
-    starting_angle=starting_angle,
-    lighting_speed=lighting_speed,
-    rotation_speed=rotation_speed,
-    rotation_direction="left",
-)
-
-moon = Planet(
-    radius=int(((screen_width + screen_height) // 4) * 0.3),
-    position=(screen_width // 3.5, screen_height // 2.5),
-    level_of_detail=1,
-    terrains=terrains.get("moon"),
-    color_mode=color_mode,
-    starting_angle=starting_angle,
-    lighting_speed=0.01,
-    rotation_speed=0.1,
-    rotation_direction="right",
-)
-
-mars = Planet(
-    radius=int(((screen_width + screen_height) // 4) * 0.05),
-    position=(screen_width // 1.2, screen_height // 4),
-    level_of_detail=1,
-    terrains=terrains.get("mars"),
-    color_mode=color_mode,
-    starting_angle=starting_angle,
-    lighting_speed=0.01,
-    rotation_speed=0.1,
-    rotation_direction="right",
-)
+planet_assets = [
+    Planet(
+        config=PlanetConfig(
+            name="Earth",
+            radius=base_radius,
+            position=base_position,
+            level_of_detail=3,
+            terrains=terrains.get("earth"),
+            color_mode="solid",
+            lighting=base_lighting,
+            rotation=Rotation(direction="left", speed=0.01),
+        ),
+    ),
+    Planet(
+        config=PlanetConfig(
+            name="Moon",
+            radius=int(((screen_width + screen_height) // 4) * 0.3),
+            position=Vector(x=screen_width // 3.5, y=screen_height // 2.5),
+            level_of_detail=1,
+            terrains=terrains.get("moon"),
+            color_mode="solid",
+            lighting=base_lighting,
+            rotation=base_rotation,
+        )
+    ),
+    Planet(
+        config=PlanetConfig(
+            name="Mars",
+            radius=int(((screen_width + screen_height) // 4) * 0.05),
+            position=Vector(x=screen_width // 1.2, y=screen_height // 3.5),
+            level_of_detail=1,
+            terrains=terrains.get("mars"),
+            color_mode="solid",
+            lighting=base_lighting,
+            rotation=base_rotation,
+        )
+    ),
+]

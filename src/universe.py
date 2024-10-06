@@ -1,7 +1,8 @@
-from src.utils import RGB, Terrain, Light, Vector, pick_color, pick_random_color
 from pygame import Surface, SRCALPHA
 from math import sqrt, pi, cos, sin
-import numpy as np
+
+from src.utils import RGB, Terrain, Vector, Lighting, Rotation, PlanetConfig
+from src.utils import pick_random_color
 
 from itertools import product
 from typing import Literal
@@ -10,73 +11,74 @@ import opensimplex
 
 
 class Planet:
-    def __init__(
-        self,
-        radius: int = 50,
-        position: tuple = (10, 10),
-        starting_angle: float = 1.5,
-        terrains: list[Terrain] = None,
-        level_of_detail: Literal[1, 2, 3, 4] = 2,
-        color_mode: Literal["solid", "change"] = "solid",
-        lighting_speed: float = 0.1,
-        rotation_speed: float = 0.1,
-        rotation_direction: Literal["left", "right"] = "left",
-    ):
+    def __init__(self, config: PlanetConfig):
         # display
-        self.radius = radius
-        self.position = Vector(x=position[0], y=position[1])
-        self.light_angle = starting_angle
+        self.position = config.position
+        self.radius = config.radius
         # appearance
-        self.terrains = terrains if terrains else self._get_default_terrains()
-        self.color_mode = color_mode
-        # light
-        self.lighting_speed = lighting_speed
-        self._light = Light
+        self.terrains = config.terrains
+        self.color_mode = config.color_mode
+        # lighting
+        self.lighting = config.lighting
         # rotation
-        self.rotation_direction = rotation_direction
-        self.rotation_speed = rotation_speed
-        self.y = 0
+        self.rotation = config.rotation
         # level of detail
-        self._lod_frequencies, self._lod_weights = self._calc_lod(level_of_detail)
+        self._lod_frequencies, self._lod_weights = self._calc_lod(config.level_of_detail)
         # etc
         self._color_was_changed = False
 
     def draw(self, screen: Surface):
-        self._update_light()
+        self._update_lighting()
         self._update_rotation()
         self._draw_sphere(display=screen)
 
-        # if self.color_mode == "change":
-        #     self._change_color_when_dark()
+        if self.color_mode == "change":
+            self._change_color_when_dark()
 
-    # light
+    # lighting
 
-    def _update_light(self) -> Light:
-        self.light_angle -= self.lighting_speed  # Increment angle
-        if self.light_angle <= -2 * pi:
-            self.light_angle += 2 * pi  # Wrap around after full circle
-            self._color_was_changed = False
+    def _update_lighting(self):
+        if self.lighting.speed > 0:
+            self.lighting.angle -= self.lighting.speed  # Increment angle
+            if self.lighting.angle <= -2 * pi:
+                self.lighting.angle += 2 * pi  # Wrap around after full circle
+                self._color_was_changed = False
+            self.lighting._direction = self._compute_lighting_direction(self.lighting.angle)
 
-        # Compute light direction based on the angle
-        light_direction = Vector(cos(self.light_angle), 0, sin(self.light_angle))
-        self._light = Light(light_direction, 1.0)
+    @staticmethod
+    def _compute_lighting_direction(angle) -> Vector:
+        return Vector(cos(angle), 0, sin(angle))
 
-    # def _change_color_when_dark(self):
-    #     is_dark = -4.9 < self.light_angle < -4.6
+    def _change_color_when_dark(self):
+        is_dark = -4.9 < self.lighting.angle < -4.6
 
-    #     if is_dark and not self._color_was_changed:
-    #         self.color = pick_random_color()
-    #         self._color_was_changed = True
+        if is_dark and not self._color_was_changed:
+            for terrain in self.terrains:
+                terrain.color = pick_random_color()
+
+            self._color_was_changed = True
 
     # rotation
 
+    def _update_rotation(self):
+        if self.rotation.speed > 0:
+            if self.rotation.direction == "left":
+                self.rotation.angle += self.rotation.speed
+            else:
+                self.rotation.angle -= self.rotation.speed
+            # stabilize angles between [0, 2pi]
+            self.rotation.angle %= 2 * pi
+
     def _gen_rotation_matrix(self):
-        rotation_y = [
-            [cos(self.y), 0, sin(self.y)],
-            [0, 1, 0],
-            [-sin(self.y), 0, cos(self.y)],
-        ]
-        return rotation_y
+        if self.rotation.axis == "y":
+            rotation_matrix = [
+                [cos(self.rotation.angle), 0, sin(self.rotation.angle)],
+                [0, 1, 0],
+                [-sin(self.rotation.angle), 0, cos(self.rotation.angle)],
+            ]
+        else:
+            raise ValueError(f"Rotation around the {self.rotation.axis}-axis has not been implemented yet! Choose the y-axis instead.")
+        return rotation_matrix
 
     def _rotate_normal(self, norm_x, norm_y, norm_z):
         rotation_matrix = self._gen_rotation_matrix()
@@ -87,24 +89,7 @@ class Planet:
 
         return rotated_x, rotated_y, rotated_z
 
-    def _update_rotation(self):
-        if self.rotation_direction == "left":
-            self.y += self.rotation_speed
-        else:
-            self.y -= self.rotation_speed
-        # stabilize angles between [0, 2pi]
-        self.y %= 2 * pi
-
     # texture
-
-    def _get_default_terrains(self):
-        return [
-            Terrain(name="water", color=RGB(21, 97, 178), threshold=0.59),
-            Terrain(name="coast", color=RGB(252, 252, 159), threshold=0.6),
-            Terrain(name="land", color=RGB(73, 150, 78), threshold=0.7),
-            Terrain(name="mountains", color=RGB(112, 83, 65), threshold=0.8),
-            Terrain(name="glacier", color=RGB(255, 255, 255), threshold=float("inf")),
-        ]
 
     @staticmethod
     def _calc_lod(lod: int):
@@ -117,7 +102,7 @@ class Planet:
         weights = [w / total_weight for w in weights]
         return frequencies, weights
 
-    def _gen_texture(self, normal_values: tuple, light_power: float):
+    def _gen_texture(self, normal_values: tuple, lighting_power: float):
         norm_x, norm_y, norm_z = normal_values
 
         terrain_value = 0
@@ -135,10 +120,10 @@ class Planet:
                 color = terrain.color
                 break
 
-        # Mix terrain with light for final texture
-        r = min(int(color.r * light_power), 255)
-        g = min(int(color.g * light_power), 255)
-        b = min(int(color.b * light_power), 255)
+        # Mix terrain with lighting for final texture
+        r = min(int(color.r * lighting_power), 255)
+        g = min(int(color.g * lighting_power), 255)
+        b = min(int(color.b * lighting_power), 255)
         a = 255
 
         texture = (r, g, b, a)
@@ -151,14 +136,14 @@ class Planet:
         radius_sq = self.radius * self.radius
         inv_radius = 1 / self.radius
 
-        light_dir_x = -self._light.direction.x
-        light_dir_y = -self._light.direction.y
-        light_dir_z = -self._light.direction.z
-        length = sqrt(light_dir_x**2 + light_dir_y**2 + light_dir_z**2)
+        lighting_dir_x = -self.lighting._direction.x
+        lighting_dir_y = -self.lighting._direction.y
+        lighting_dir_z = -self.lighting._direction.z
+        length = sqrt(lighting_dir_x**2 + lighting_dir_y**2 + lighting_dir_z**2)
         if length != 0:
-            light_dir_x /= length
-            light_dir_y /= length
-            light_dir_z /= length
+            lighting_dir_x /= length
+            lighting_dir_y /= length
+            lighting_dir_z /= length
 
         sphere_surface = Surface((2 * self.radius, 2 * self.radius), SRCALPHA)
 
@@ -171,10 +156,10 @@ class Planet:
                 norm_z = sqrt(max(0, 1 - (x * x + y * y) * inv_radius * inv_radius))
 
                 # Use normals for lighting
-                light_power = max(norm_x * light_dir_x + norm_y * light_dir_y + norm_z * light_dir_z, 0) * self._light.intensity
+                lighting_power = max(norm_x * lighting_dir_x + norm_y * lighting_dir_y + norm_z * lighting_dir_z, 0) * self.lighting.intensity
                 # Use rotated normals for texture
                 rotated_x, rotated_y, rotated_z = self._rotate_normal(norm_x, norm_y, norm_z)
-                texture = self._gen_texture((rotated_x, rotated_y, rotated_z), light_power)
+                texture = self._gen_texture((rotated_x, rotated_y, rotated_z), lighting_power)
 
                 sphere_surface.set_at((x + self.radius, y + self.radius), texture)
 
