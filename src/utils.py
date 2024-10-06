@@ -70,3 +70,11 @@ class Light:
     speed: float
     direction: Vector
     intensity: float
+
+
+@dataclass
+class Rotation:
+    direction: Literal["left", "right"]
+    speed: float
+    axis: Literal["x", "y", "z"]
+    angle: float

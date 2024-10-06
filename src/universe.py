@@ -1,4 +1,4 @@
-from src.utils import RGB, Terrain, Light, Vector, pick_random_color
+from src.utils import RGB, Terrain, Vector, Light, Rotation, pick_random_color
 from pygame import Surface, SRCALPHA
 from math import sqrt, pi, cos, sin
 
@@ -30,9 +30,7 @@ class Planet:
         # light
         self.light = Light(starting_angle, lighting_speed, self._compute_light_direction(starting_angle), 1.0)
         # rotation
-        self.rotation_direction = rotation_direction
-        self.rotation_speed = rotation_speed
-        self.y_axis_rotation = 0
+        self.rotation = Rotation(rotation_direction, rotation_speed, "y", 0.0)
         # level of detail
         self._lod_frequencies, self._lod_weights = self._calc_lod(level_of_detail)
         # etc
@@ -72,21 +70,24 @@ class Planet:
     # rotation
 
     def _update_rotation(self):
-        if self.rotation_speed > 0:
-            if self.rotation_direction == "left":
-                self.y_axis_rotation += self.rotation_speed
+        if self.rotation.speed > 0:
+            if self.rotation.direction == "left":
+                self.rotation.angle += self.rotation.speed
             else:
-                self.y_axis_rotation -= self.rotation_speed
+                self.rotation.angle -= self.rotation.speed
             # stabilize angles between [0, 2pi]
-            self.y_axis_rotation %= 2 * pi
+            self.rotation.angle %= 2 * pi
 
     def _gen_rotation_matrix(self):
-        rotation_y = [
-            [cos(self.y_axis_rotation), 0, sin(self.y_axis_rotation)],
-            [0, 1, 0],
-            [-sin(self.y_axis_rotation), 0, cos(self.y_axis_rotation)],
-        ]
-        return rotation_y
+        if self.rotation.axis == "y":
+            rotation_matrix = [
+                [cos(self.rotation.angle), 0, sin(self.rotation.angle)],
+                [0, 1, 0],
+                [-sin(self.rotation.angle), 0, cos(self.rotation.angle)],
+            ]
+        else:
+            raise ValueError(f"{self.rotation.axis} rotation has not been implemented yet! Choose 'y' instead.")
+        return rotation_matrix
 
     def _rotate_normal(self, norm_x, norm_y, norm_z):
         rotation_matrix = self._gen_rotation_matrix()
