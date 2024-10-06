@@ -1,4 +1,4 @@
-from src.utils import pick_color, RGB, Terrain, PlanetConfig, Light, Rotation, Vector
+from src.utils import pick_color, RGB, Terrain, PlanetConfig, Lighting, Rotation, Vector
 
 
 # display settings
@@ -12,7 +12,7 @@ display_caption = "UniPlanets"
 background_color = pick_color("black")
 
 # planet settings
-base_lighting = Light(angle=-1.5, speed=0.01, intensity=1.0)
+base_lighting = Lighting(angle=-1.5, speed=0.01, intensity=1.0)
 base_rotation = Rotation(direction="left", speed=0.1, axis="y", angle=0.0)
 base_lod = 2
 base_radius = int(((screen_width + screen_height) // 4) * 0.6)

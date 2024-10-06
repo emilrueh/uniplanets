@@ -65,7 +65,7 @@ class Vector:
 
 
 @dataclass
-class Light:
+class Lighting:
     angle: float
     speed: float
     intensity: float
@@ -88,5 +88,5 @@ class PlanetConfig:
     level_of_detail: Literal[1, 2, 3, 4]
     terrains: list[Terrain]
     color_mode: Literal["solid", "change"]
-    lighting: Light
+    lighting: Lighting
     rotation: Rotation
