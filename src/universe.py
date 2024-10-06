@@ -28,7 +28,7 @@ class Planet:
         self.terrains = terrains if terrains else self._get_default_terrains()
         self.color_mode = color_mode
         # light
-        self.light = Light(starting_angle, lighting_speed, self._compute_light_direction(), 1.0)
+        self.light = Light(starting_angle, lighting_speed, self._compute_light_direction(starting_angle), 1.0)
         # rotation
         self.rotation_direction = rotation_direction
         self.rotation_speed = rotation_speed
@@ -49,18 +49,19 @@ class Planet:
     # light
 
     def _update_light(self):
-        if self.ligh.speed > 0:
+        if self.light.speed > 0:
             self.light.angle -= self.light.speed  # Increment angle
             if self.light.angle <= -2 * pi:
                 self.light.angle += 2 * pi  # Wrap around after full circle
                 self._color_was_changed = False
-            self.light.direction = self._compute_light_direction()
+            self.light.direction = self._compute_light_direction(self.light.angle)
 
-    def _compute_light_direction(self) -> Vector:
-        return Vector(cos(self.light.angle), 0, sin(self.light.angle))
+    @staticmethod
+    def _compute_light_direction(angle) -> Vector:
+        return Vector(cos(angle), 0, sin(angle))
 
     def _change_color_when_dark(self):
-        is_dark = -4.9 < self.light_angle < -4.6
+        is_dark = -4.9 < self.light.angle < -4.6
 
         if is_dark and not self._color_was_changed:
             for terrain in self.terrains:
