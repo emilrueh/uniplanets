@@ -64,9 +64,9 @@ class Vector:
         return self.x * other.x + self.y * other.y + self.z * other.z
 
 
+@dataclass
 class Light:
-    def __init__(self, angle: float, speed: float, direction: Vector, intensity: float):
-        self.angle = angle
-        self.speed = speed
-        self.direction = direction
-        self.intensity = intensity
+    angle: float
+    speed: float
+    direction: Vector
+    intensity: float
