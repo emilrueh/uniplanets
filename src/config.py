@@ -1,4 +1,4 @@
-from src.utils import pick_color, RGB, Terrain, PlanetConfig, Lighting, Rotation, Vector
+from src.utils import pick_color, RGB, Terrain, Clouds, Lighting, Rotation, Vector, LevelOfDetail
 
 
 # display settings
@@ -14,7 +14,8 @@ background_color = pick_color("black")
 # planet settings
 base_lighting = Lighting(angle=-1.5, speed=0.01, intensity=1.0)
 base_rotation = Rotation(direction="left", speed=0.01, axis="y", angle=0.0)
-base_lod = 1
+base_planet_lod = LevelOfDetail(1, frequencies=[2, 4, 8, 16], weights=[0.5, 0.25, 0.125, 0.125])
+base_clouds_lod = LevelOfDetail(3, frequencies=[4, 8, 16, 32], weights=[0.75, 0.125, 0.0625, 0.0625])
 base_radius = int(((screen_width + screen_height) // 4) * 0.6)
 base_position = Vector(x=screen_width // 2, y=screen_height // 2)
 
@@ -35,4 +36,12 @@ terrains = {
         Terrain(name="desert", color=RGB(160, 80, 43), threshold=0.6),
         Terrain(name="mountain", color=RGB(214, 133, 83), threshold=float("inf")),
     ],
+    "eve": [
+        Terrain(name="sea", color=RGB(132, 80, 183), threshold=0.6),
+        Terrain(name="land", color=RGB(212, 80, 165), threshold=float("inf")),  # last terrain (highest) needs rest of the scale
+    ],
+}
+
+clouds = {
+    "earth": Clouds(height=1.1, color=RGB(255, 255, 255), alpha=200, threshold=0.6, lod=base_clouds_lod),
 }
