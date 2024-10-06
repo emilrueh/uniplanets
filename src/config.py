@@ -3,7 +3,7 @@ from src.utils import pick_color, RGB, Terrain, PlanetConfig, Lighting, Rotation
 
 # display settings
 resolution, upscale = "1920x1080", 0.05
-fps = 10
+fps = 30
 
 screen_width, screen_height = int(int(resolution.split("x")[0]) * upscale), int(int(resolution.split("x")[-1]) * upscale)
 print(f"{screen_width}x{screen_height} {fps}fps")
@@ -13,8 +13,8 @@ background_color = pick_color("black")
 
 # planet settings
 base_lighting = Lighting(angle=-1.5, speed=0.01, intensity=1.0)
-base_rotation = Rotation(direction="left", speed=0.1, axis="y", angle=0.0)
-base_lod = 2
+base_rotation = Rotation(direction="left", speed=0.01, axis="y", angle=0.0)
+base_lod = 1
 base_radius = int(((screen_width + screen_height) // 4) * 0.6)
 base_position = Vector(x=screen_width // 2, y=screen_height // 2)
 
@@ -36,14 +36,3 @@ terrains = {
         Terrain(name="mountain", color=RGB(214, 133, 83), threshold=float("inf")),
     ],
 }
-
-earth_config = PlanetConfig(
-    name="Earth",
-    radius=base_radius,
-    position=base_position,
-    level_of_detail=base_lod,
-    terrains=terrains.get("earth"),
-    color_mode="solid",
-    lighting=base_lighting,
-    rotation=base_rotation,
-)
