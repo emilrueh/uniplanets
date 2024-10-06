@@ -1,6 +1,8 @@
-from src.utils import RGB, Terrain, Vector, Light, Rotation, pick_random_color
 from pygame import Surface, SRCALPHA
 from math import sqrt, pi, cos, sin
+
+from src.utils import RGB, Terrain, Vector, Light, Rotation, PlanetConfig
+from src.utils import pick_random_color
 
 from itertools import product
 from typing import Literal
@@ -9,30 +11,19 @@ import opensimplex
 
 
 class Planet:
-    def __init__(
-        self,
-        radius: int = 50,
-        position: tuple = (10, 10),
-        starting_angle: float = 1.5,
-        terrains: list[Terrain] = None,
-        level_of_detail: Literal[1, 2, 3, 4] = 2,
-        color_mode: Literal["solid", "change"] = "solid",
-        lighting_speed: float = 0.1,
-        rotation_speed: float = 0.1,
-        rotation_direction: Literal["left", "right"] = "left",
-    ):
+    def __init__(self, config: PlanetConfig):
         # display
-        self.position = Vector(x=position[0], y=position[1])
-        self.radius = radius
+        self.position = config.position
+        self.radius = config.radius
         # appearance
-        self.terrains = terrains if terrains else self._get_default_terrains()
-        self.color_mode = color_mode
-        # light
-        self.light = Light(starting_angle, lighting_speed, self._compute_light_direction(starting_angle), 1.0)
+        self.terrains = config.terrains
+        self.color_mode = config.color_mode
+        # lighting
+        self.light = config.lighting
         # rotation
-        self.rotation = Rotation(rotation_direction, rotation_speed, "y", 0.0)
+        self.rotation = config.rotation
         # level of detail
-        self._lod_frequencies, self._lod_weights = self._calc_lod(level_of_detail)
+        self._lod_frequencies, self._lod_weights = self._calc_lod(config.level_of_detail)
         # etc
         self._color_was_changed = False
 
@@ -52,7 +43,7 @@ class Planet:
             if self.light.angle <= -2 * pi:
                 self.light.angle += 2 * pi  # Wrap around after full circle
                 self._color_was_changed = False
-            self.light.direction = self._compute_light_direction(self.light.angle)
+            self.light._direction = self._compute_light_direction(self.light.angle)
 
     @staticmethod
     def _compute_light_direction(angle) -> Vector:
@@ -155,9 +146,9 @@ class Planet:
         radius_sq = self.radius * self.radius
         inv_radius = 1 / self.radius
 
-        light_dir_x = -self.light.direction.x
-        light_dir_y = -self.light.direction.y
-        light_dir_z = -self.light.direction.z
+        light_dir_x = -self.light._direction.x
+        light_dir_y = -self.light._direction.y
+        light_dir_z = -self.light._direction.z
         length = sqrt(light_dir_x**2 + light_dir_y**2 + light_dir_z**2)
         if length != 0:
             light_dir_x /= length

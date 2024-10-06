@@ -68,8 +68,8 @@ class Vector:
 class Light:
     angle: float
     speed: float
-    direction: Vector
     intensity: float
+    _direction: Vector = Vector(0, 0, 0)
 
 
 @dataclass
@@ -78,3 +78,15 @@ class Rotation:
     speed: float
     axis: Literal["x", "y", "z"]
     angle: float
+
+
+@dataclass
+class PlanetConfig:
+    name: str
+    radius: int
+    position: Vector
+    level_of_detail: Literal[1, 2, 3, 4]
+    terrains: list[Terrain]
+    color_mode: Literal["solid", "change"]
+    lighting: Light
+    rotation: Rotation
