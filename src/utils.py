@@ -65,6 +65,8 @@ class Vector:
 
 
 class Light:
-    def __init__(self, direction, intensity):
-        self.direction = direction  # Assume it's a Vector
-        self.intensity = intensity  # Float value for light intensity
+    def __init__(self, angle: float, speed: float, direction: Vector, intensity: float):
+        self.angle = angle
+        self.speed = speed
+        self.direction = direction
+        self.intensity = intensity

@@ -22,19 +22,17 @@ class Planet:
         rotation_direction: Literal["left", "right"] = "left",
     ):
         # display
-        self.radius = radius
         self.position = Vector(x=position[0], y=position[1])
-        self.light_angle = starting_angle
+        self.radius = radius
         # appearance
         self.terrains = terrains if terrains else self._get_default_terrains()
         self.color_mode = color_mode
         # light
-        self.lighting_speed = lighting_speed
-        self._light = Light
+        self.light = Light(starting_angle, lighting_speed, self._compute_light_direction(), 1.0)
         # rotation
         self.rotation_direction = rotation_direction
         self.rotation_speed = rotation_speed
-        self.y = 0
+        self.y_axis_rotation = 0
         # level of detail
         self._lod_frequencies, self._lod_weights = self._calc_lod(level_of_detail)
         # etc
@@ -50,15 +48,15 @@ class Planet:
 
     # light
 
-    def _update_light(self) -> Light:
-        self.light_angle -= self.lighting_speed  # Increment angle
-        if self.light_angle <= -2 * pi:
-            self.light_angle += 2 * pi  # Wrap around after full circle
+    def _update_light(self):
+        self.light.angle -= self.light.speed  # Increment angle
+        if self.light.angle <= -2 * pi:
+            self.light.angle += 2 * pi  # Wrap around after full circle
             self._color_was_changed = False
+        self.light.direction = self._compute_light_direction()
 
-        # Compute light direction based on the angle
-        light_direction = Vector(cos(self.light_angle), 0, sin(self.light_angle))
-        self._light = Light(light_direction, 1.0)
+    def _compute_light_direction(self) -> Vector:
+        return Vector(cos(self.light.angle), 0, sin(self.light.angle))
 
     def _change_color_when_dark(self):
         is_dark = -4.9 < self.light_angle < -4.6
@@ -71,11 +69,19 @@ class Planet:
 
     # rotation
 
+    def _update_rotation(self):
+        if self.rotation_direction == "left":
+            self.y_axis_rotation += self.rotation_speed
+        else:
+            self.y_axis_rotation -= self.rotation_speed
+        # stabilize angles between [0, 2pi]
+        self.y_axis_rotation %= 2 * pi
+
     def _gen_rotation_matrix(self):
         rotation_y = [
-            [cos(self.y), 0, sin(self.y)],
+            [cos(self.y_axis_rotation), 0, sin(self.y_axis_rotation)],
             [0, 1, 0],
-            [-sin(self.y), 0, cos(self.y)],
+            [-sin(self.y_axis_rotation), 0, cos(self.y_axis_rotation)],
         ]
         return rotation_y
 
@@ -88,17 +94,10 @@ class Planet:
 
         return rotated_x, rotated_y, rotated_z
 
-    def _update_rotation(self):
-        if self.rotation_direction == "left":
-            self.y += self.rotation_speed
-        else:
-            self.y -= self.rotation_speed
-        # stabilize angles between [0, 2pi]
-        self.y %= 2 * pi
-
     # texture
 
-    def _get_default_terrains(self):
+    @staticmethod
+    def _get_default_terrains():
         return [
             Terrain(name="water", color=RGB(21, 97, 178), threshold=0.59),
             Terrain(name="coast", color=RGB(252, 252, 159), threshold=0.6),
@@ -152,9 +151,9 @@ class Planet:
         radius_sq = self.radius * self.radius
         inv_radius = 1 / self.radius
 
-        light_dir_x = -self._light.direction.x
-        light_dir_y = -self._light.direction.y
-        light_dir_z = -self._light.direction.z
+        light_dir_x = -self.light.direction.x
+        light_dir_y = -self.light.direction.y
+        light_dir_z = -self.light.direction.z
         length = sqrt(light_dir_x**2 + light_dir_y**2 + light_dir_z**2)
         if length != 0:
             light_dir_x /= length
@@ -172,7 +171,7 @@ class Planet:
                 norm_z = sqrt(max(0, 1 - (x * x + y * y) * inv_radius * inv_radius))
 
                 # Use normals for lighting
-                light_power = max(norm_x * light_dir_x + norm_y * light_dir_y + norm_z * light_dir_z, 0) * self._light.intensity
+                light_power = max(norm_x * light_dir_x + norm_y * light_dir_y + norm_z * light_dir_z, 0) * self.light.intensity
                 # Use rotated normals for texture
                 rotated_x, rotated_y, rotated_z = self._rotate_normal(norm_x, norm_y, norm_z)
                 texture = self._gen_texture((rotated_x, rotated_y, rotated_z), light_power)
