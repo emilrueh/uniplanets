@@ -43,13 +43,13 @@ def pick_random_color():
     return pick_color(RGB(r=randint(0, 255), g=randint(0, 255), b=randint(0, 255)))
 
 
-def set_time_of_day(time_of_day: Literal["night", "morning", "noon", "evening", "random"] = "random") -> float:
+def set_time_of_day(time_of_day: Literal["day", "night", "morning", "noon", "evening", "random"] = "random") -> float:
     match time_of_day:
         case "night":
             angle_of_light = 1.5
         case "morning":
             angle_of_light = 0.5
-        case "noon":
+        case "noon" | "day":
             angle_of_light = -1.5
         case "evening":
             angle_of_light = -3.5
@@ -130,6 +130,7 @@ class Clouds:
     alpha: int = 200  # should be normalized to float between 0 and 1 (also should be part of RGB as RGBA)
     threshold: int = 0.6
     lod: LevelOfDetail = LevelOfDetail()
+    rotation: Rotation = Rotation
 
 
 @dataclass
@@ -142,7 +143,7 @@ class PlanetConfig:
     clouds: Clouds = Clouds
     color_mode: Literal["solid", "change"] = "solid"
     lighting: Lighting = Lighting
-    rotation: Rotation = Rotation
+    planet_rotation: Rotation = Rotation
 
     def __post_init__(self):
         if not self.terrains:
