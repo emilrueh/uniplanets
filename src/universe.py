@@ -31,7 +31,7 @@ class Planet:
         self.color_mode = config.color_mode
         # clouds
         self.clouds = config.clouds
-        self._cloud_radius = int(self.radius * self.clouds.height)
+        self._cloud_radius = int(self.radius * self.clouds.height) if self.clouds else None
         # lighting
         self.lighting = config.lighting
         # rotation
@@ -92,6 +92,14 @@ class Planet:
                     [cos(rotation.angle), 0, sin(rotation.angle)],
                     [0, 1, 0],
                     [-sin(rotation.angle), 0, cos(rotation.angle)],
+                ]
+            )
+        if "z" in rotation.axis:
+            axis_rotation_matrices.append(
+                [
+                    [cos(rotation.angle), -sin(rotation.angle), 0],
+                    [sin(rotation.angle), cos(rotation.angle), 0],
+                    [0, 0, 1],
                 ]
             )
         return self._multiply_matrices(*axis_rotation_matrices) if axis_rotation_matrices else None
@@ -184,13 +192,16 @@ class Planet:
         display.blit(sphere_surface, (self.position.x - radius, self.position.y - radius))
 
     def draw(self, screen: Surface):
-        self._update_lighting()
-        self._update_rotations([self.planet_rotation, self.clouds.rotation])
-
+        rotations = [self.planet_rotation]
         # Draw planet
         self._draw_sphere(display=screen, radius=self.radius, lod=self.terrain_lod, texture_func=self._build_terrain, rotation=self.planet_rotation)
         # Draw clouds
-        self._draw_sphere(display=screen, radius=self._cloud_radius, lod=self.clouds.lod, texture_func=self._build_clouds, rotation=self.clouds.rotation)
+        if self.clouds:
+            rotations.append(self.clouds.rotation)
+            self._draw_sphere(display=screen, radius=self._cloud_radius, lod=self.clouds.lod, texture_func=self._build_clouds, rotation=self.clouds.rotation)
+
+        self._update_lighting()
+        self._update_rotations(rotations)
 
         if self.color_mode == "change":
             self._change_color_when_dark()
