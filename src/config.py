@@ -18,7 +18,7 @@ background_color = pick_color("black")
 angle_of_light = set_time_of_day("random")
 
 base_lighting = Lighting(angle=angle_of_light, speed=0.01, intensity=1.0)
-base_rotation = Rotation(direction="left", speed=0.01, axis="y", angle=0.0)
+base_planet_rotation = Rotation(direction="left", speed=0.01, axis="y", angle=0.0)
 base_planet_lod = LevelOfDetail(1, frequencies=[2, 4, 8, 16], weights=[0.5, 0.25, 0.125, 0.125])
 base_clouds_lod = LevelOfDetail(1, frequencies=[4, 8, 16, 32], weights=[0.75, 0.125, 0.0625, 0.0625])
 base_radius = int(((screen_width + screen_height) // 4) * 0.6)
@@ -48,5 +48,12 @@ terrains = {
 }
 
 clouds = {
-    "earth": Clouds(height=1.1, color=RGB(255, 255, 255), alpha=200, threshold=0.6, lod=base_clouds_lod),
+    "earth": Clouds(
+        height=1.1,
+        color=RGB(255, 255, 255),
+        alpha=180,
+        threshold=0.6,
+        lod=base_clouds_lod,
+        rotation=Rotation(direction="left", speed=0.01, axis="x"),
+    ),
 }
