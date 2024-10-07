@@ -3,7 +3,7 @@ from src.universe import Planet
 from src.utils import PlanetConfig, Vector, Lighting, Rotation, Terrain, Clouds, RGB, LevelOfDetail
 
 from src.config import screen_width, screen_height
-from src.config import base_radius, base_position, base_planet_lod, base_lighting, base_rotation
+from src.config import base_radius, base_position, base_planet_lod, base_lighting, base_planet_rotation
 from src.config import terrains, clouds
 
 
@@ -18,7 +18,7 @@ planet_assets = [
             clouds=clouds.get("earth"),
             color_mode="solid",
             lighting=base_lighting,
-            rotation=Rotation(direction="left", speed=0.01),
+            planet_rotation=Rotation(direction="left", speed=0.01, axis="y"),
         ),
     ),
     # Planet(
