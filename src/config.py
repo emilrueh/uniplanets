@@ -4,7 +4,7 @@ import random
 
 
 # display settings
-resolution, upscale = "1920x1080", 0.1
+resolution, upscale = "1920x1080", 0.2
 fps = 10
 
 screen_width, screen_height = int(int(resolution.split("x")[0]) * upscale), int(int(resolution.split("x")[-1]) * upscale)
@@ -38,7 +38,7 @@ terrains = {
         Terrain(name="crater", color=RGB(32, 34, 35), threshold=float("inf")),
     ],
     "mars": [
-        Terrain(name="desert", color=RGB(160, 80, 43), threshold=0.6),
+        Terrain(name="desert", color=RGB(160, 80, 43), threshold=0.58),
         Terrain(name="mountain", color=RGB(214, 133, 83), threshold=float("inf")),
     ],
     "eve": [
@@ -54,6 +54,22 @@ clouds = {
         alpha=180,
         threshold=0.6,
         lod=base_clouds_lod,
-        rotation=Rotation(direction="left", speed=0.01, axis=["x", "y"]),
+        rotation=Rotation(direction="left", speed=0.001, axis=["y", "z"]),
+    ),
+    "mars": Clouds(
+        height=1.2,
+        color=RGB(255, 220, 160),
+        alpha=150,
+        threshold=0.68,
+        lod=base_clouds_lod,
+        rotation=Rotation(direction="right", speed=0.005, axis=["y", "z"]),
+    ),
+    "eve": Clouds(
+        height=1.15,
+        color=RGB(150, 150, 255),
+        alpha=100,
+        threshold=0.5,
+        lod=base_clouds_lod,
+        rotation=Rotation(direction="left", speed=0.01, axis=["x", "z"]),
     ),
 }
