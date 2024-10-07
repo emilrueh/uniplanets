@@ -54,6 +54,6 @@ clouds = {
         alpha=180,
         threshold=0.6,
         lod=base_clouds_lod,
-        rotation=Rotation(direction="left", speed=0.01, axis="x"),
+        rotation=Rotation(direction="left", speed=0.01, axis=["x", "y"]),
     ),
 }
