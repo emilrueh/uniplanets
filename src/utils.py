@@ -138,7 +138,7 @@ class PlanetConfig:
     position: Vector = Vector(x=10, y=10)
     terrains: list[Terrain] = None
     terrain_lod: LevelOfDetail = LevelOfDetail()
-    clouds: Clouds = Clouds
+    clouds: Clouds = None
     color_mode: Literal["solid", "change"] = "solid"
     lighting: Lighting = Lighting
     planet_rotation: Rotation = Rotation
