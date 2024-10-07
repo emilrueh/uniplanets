@@ -2,6 +2,7 @@ from math import sqrt
 from dataclasses import dataclass, field
 from random import randint
 from typing import Literal
+import random
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,22 @@ def pick_color(
 
 def pick_random_color():
     return pick_color(RGB(r=randint(0, 255), g=randint(0, 255), b=randint(0, 255)))
+
+
+def set_time_of_day(time_of_day: Literal["night", "morning", "noon", "evening", "random"] = "random") -> float:
+    match time_of_day:
+        case "night":
+            angle_of_light = 1.5
+        case "morning":
+            angle_of_light = 0.5
+        case "noon":
+            angle_of_light = -1.5
+        case "evening":
+            angle_of_light = -3.5
+        case _:
+            angle_of_light = round(random.uniform(-4, 4), 1)
+
+    return angle_of_light
 
 
 @dataclass

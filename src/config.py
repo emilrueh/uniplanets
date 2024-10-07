@@ -1,9 +1,11 @@
-from src.utils import pick_color, RGB, Terrain, Clouds, Lighting, Rotation, Vector, LevelOfDetail
+from src.utils import pick_color, RGB, Terrain, Clouds, Lighting, Rotation, Vector, LevelOfDetail, set_time_of_day
+from typing import Literal
+import random
 
 
 # display settings
-resolution, upscale = "1920x1080", 0.05
-fps = 30
+resolution, upscale = "1920x1080", 0.1
+fps = 10
 
 screen_width, screen_height = int(int(resolution.split("x")[0]) * upscale), int(int(resolution.split("x")[-1]) * upscale)
 print(f"{screen_width}x{screen_height} {fps}fps")
@@ -12,10 +14,13 @@ display_caption = "UniPlanets"
 background_color = pick_color("black")
 
 # planet settings
-base_lighting = Lighting(angle=-1.5, speed=0.01, intensity=1.0)
+
+angle_of_light = set_time_of_day("random")
+
+base_lighting = Lighting(angle=angle_of_light, speed=0.01, intensity=1.0)
 base_rotation = Rotation(direction="left", speed=0.01, axis="y", angle=0.0)
 base_planet_lod = LevelOfDetail(1, frequencies=[2, 4, 8, 16], weights=[0.5, 0.25, 0.125, 0.125])
-base_clouds_lod = LevelOfDetail(3, frequencies=[4, 8, 16, 32], weights=[0.75, 0.125, 0.0625, 0.0625])
+base_clouds_lod = LevelOfDetail(1, frequencies=[4, 8, 16, 32], weights=[0.75, 0.125, 0.0625, 0.0625])
 base_radius = int(((screen_width + screen_height) // 4) * 0.6)
 base_position = Vector(x=screen_width // 2, y=screen_height // 2)
 
