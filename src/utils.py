@@ -66,14 +66,6 @@ class Terrain:
     threshold: float
 
 
-# @dataclass
-# class Clouds:
-#     color: RGB
-#     threshold: float = 0.5
-#     height: float = 30
-#     _radius: float = None
-
-
 class Vector:
     def __init__(self, x=0, y=0, z=0):
         self.x = x
@@ -103,8 +95,14 @@ class Lighting:
 class Rotation:
     direction: Literal["left", "right"] = "left"
     speed: float = 0.1
-    axis: Literal["x", "y", "z"] = "y"
+    axis: list[Literal["x", "y", "z"]] = None
     angle: float = 0.0
+
+    def __post_init__(self):
+        if not self.axis:
+            self.axis = "y"
+        if not isinstance(self.axis, list):
+            self.axis = [self.axis]
 
 
 class LevelOfDetail:

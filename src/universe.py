@@ -8,11 +8,13 @@ TODO:
 
 from pygame import Surface, SRCALPHA
 from math import sqrt, pi, cos, sin
+import numpy as np
 
 from src.utils import RGB, Terrain, Clouds, Vector, Lighting, Rotation, LevelOfDetail, PlanetConfig
 from src.utils import pick_random_color
 
 from itertools import product
+from functools import reduce
 from typing import Literal, Callable
 
 import opensimplex
@@ -72,23 +74,27 @@ class Planet:
                 # stabilize angles between [0, 2pi]
                 rotation.angle %= 2 * pi
 
-    @staticmethod
-    def _gen_rotation_matrix(rotation: Rotation):
-        if rotation.axis == "x":
-            rotation_matrix = [
-                [1, 0, 0],
-                [0, cos(rotation.angle), -sin(rotation.angle)],
-                [0, sin(rotation.angle), cos(rotation.angle)],
-            ]
-        elif rotation.axis == "y":
-            rotation_matrix = [
-                [cos(rotation.angle), 0, sin(rotation.angle)],
-                [0, 1, 0],
-                [-sin(rotation.angle), 0, cos(rotation.angle)],
-            ]
-        else:
-            raise ValueError(f"Rotation around the {rotation.axis}-axis has not been implemented yet! Choose the x or y-axis instead.")
-        return rotation_matrix
+    _multiply_matrices = staticmethod(lambda *matrices: matrices[0] if len(matrices) == 1 else reduce(np.dot, matrices))
+
+    def _gen_rotation_matrix(self, rotation: Rotation) -> list[list] | None:
+        axis_rotation_matrices = []
+        if "x" in rotation.axis:
+            axis_rotation_matrices.append(
+                [
+                    [1, 0, 0],
+                    [0, cos(rotation.angle), -sin(rotation.angle)],
+                    [0, sin(rotation.angle), cos(rotation.angle)],
+                ]
+            )
+        if "y" in rotation.axis:
+            axis_rotation_matrices.append(
+                [
+                    [cos(rotation.angle), 0, sin(rotation.angle)],
+                    [0, 1, 0],
+                    [-sin(rotation.angle), 0, cos(rotation.angle)],
+                ]
+            )
+        return self._multiply_matrices(*axis_rotation_matrices) if axis_rotation_matrices else None
 
     def _rotate_normal(self, norm_x, norm_y, norm_z, rotation: Rotation):
         rotation_matrix = self._gen_rotation_matrix(rotation)
