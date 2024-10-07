@@ -33,7 +33,7 @@ class Planet:
         # lighting
         self.lighting = config.lighting
         # rotation
-        self.rotation = config.rotation
+        self.planet_rotation = config.planet_rotation
         # etc
         self._color_was_changed = False
 
@@ -62,28 +62,36 @@ class Planet:
 
     # rotation
 
-    def _update_rotation(self):
-        if self.rotation.speed > 0:
-            if self.rotation.direction == "left":
-                self.rotation.angle += self.rotation.speed
-            else:
-                self.rotation.angle -= self.rotation.speed
-            # stabilize angles between [0, 2pi]
-            self.rotation.angle %= 2 * pi
+    def _update_rotations(self, rotations: list[Rotation]):
+        for rotation in rotations:
+            if rotation.speed > 0:
+                if rotation.direction == "left":
+                    rotation.angle += rotation.speed
+                else:
+                    rotation.angle -= rotation.speed
+                # stabilize angles between [0, 2pi]
+                rotation.angle %= 2 * pi
 
-    def _gen_rotation_matrix(self):
-        if self.rotation.axis == "y":
+    @staticmethod
+    def _gen_rotation_matrix(rotation: Rotation):
+        if rotation.axis == "x":
             rotation_matrix = [
-                [cos(self.rotation.angle), 0, sin(self.rotation.angle)],
+                [1, 0, 0],
+                [0, cos(rotation.angle), -sin(rotation.angle)],
+                [0, sin(rotation.angle), cos(rotation.angle)],
+            ]
+        elif rotation.axis == "y":
+            rotation_matrix = [
+                [cos(rotation.angle), 0, sin(rotation.angle)],
                 [0, 1, 0],
-                [-sin(self.rotation.angle), 0, cos(self.rotation.angle)],
+                [-sin(rotation.angle), 0, cos(rotation.angle)],
             ]
         else:
-            raise ValueError(f"Rotation around the {self.rotation.axis}-axis has not been implemented yet! Choose the y-axis instead.")
+            raise ValueError(f"Rotation around the {rotation.axis}-axis has not been implemented yet! Choose the x or y-axis instead.")
         return rotation_matrix
 
-    def _rotate_normal(self, norm_x, norm_y, norm_z):
-        rotation_matrix = self._gen_rotation_matrix()
+    def _rotate_normal(self, norm_x, norm_y, norm_z, rotation: Rotation):
+        rotation_matrix = self._gen_rotation_matrix(rotation)
 
         rotated_x = rotation_matrix[0][0] * norm_x + rotation_matrix[0][1] * norm_y + rotation_matrix[0][2] * norm_z
         rotated_y = rotation_matrix[1][0] * norm_x + rotation_matrix[1][1] * norm_y + rotation_matrix[1][2] * norm_z
@@ -131,7 +139,7 @@ class Planet:
 
     # main
 
-    def _draw_sphere(self, display: Surface, radius: int, lod: LevelOfDetail, texture_func: Callable):
+    def _draw_sphere(self, display: Surface, radius: int, lod: LevelOfDetail, texture_func: Callable, rotation: Rotation):
         radius_sq = radius * radius
         inv_radius = 1 / radius
 
@@ -157,7 +165,7 @@ class Planet:
                 # Use lighting direction
                 lighting_power = max(norm_x * lighting_dir_x + norm_y * lighting_dir_y + norm_z * lighting_dir_z, 0) * self.lighting.intensity
                 # Use rotated normals for texture
-                rotated_x, rotated_y, rotated_z = self._rotate_normal(norm_x, norm_y, norm_z)
+                rotated_x, rotated_y, rotated_z = self._rotate_normal(norm_x, norm_y, norm_z, rotation=rotation)
 
                 texture = self._gen_texture(
                     normals=(rotated_x, rotated_y, rotated_z),
@@ -171,12 +179,12 @@ class Planet:
 
     def draw(self, screen: Surface):
         self._update_lighting()
-        self._update_rotation()
+        self._update_rotations([self.planet_rotation, self.clouds.rotation])
 
         # Draw planet
-        self._draw_sphere(display=screen, radius=self.radius, lod=self.terrain_lod, texture_func=self._build_terrain)
+        self._draw_sphere(display=screen, radius=self.radius, lod=self.terrain_lod, texture_func=self._build_terrain, rotation=self.planet_rotation)
         # Draw clouds
-        self._draw_sphere(display=screen, radius=self._cloud_radius, lod=self.clouds.lod, texture_func=self._build_clouds)
+        self._draw_sphere(display=screen, radius=self._cloud_radius, lod=self.clouds.lod, texture_func=self._build_clouds, rotation=self.clouds.rotation)
 
         if self.color_mode == "change":
             self._change_color_when_dark()
