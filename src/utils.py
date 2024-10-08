@@ -138,6 +138,7 @@ class PlanetConfig:
     terrains: list[Terrain] = None
     terrain_lod: LevelOfDetail = LevelOfDetail()
     clouds: Clouds = None
+    wind_speed: float = 0.01
     color_mode: Literal["solid", "change"] = "solid"
     lighting: Lighting = Lighting
     planet_rotation: Rotation = Rotation

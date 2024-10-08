@@ -18,6 +18,7 @@ planets = [
             terrains=terrains.get("earth"),
             terrain_lod=base_planet_lod,
             clouds=clouds.get("earth"),
+            wind_speed=0.01,
             color_mode="solid",
             lighting=base_lighting,
             planet_rotation=Rotation(direction="left", speed=0.01, axis=["x", "y"]),
@@ -44,6 +45,7 @@ planets = [
             terrains=terrains.get("mars"),
             terrain_lod=base_planet_lod,
             clouds=clouds.get("mars"),
+            wind_speed=0.02,
             color_mode="solid",
             lighting=base_lighting,
             planet_rotation=Rotation(direction="right", speed=0.01, axis=["x", "y", "z"]),
@@ -57,6 +59,7 @@ planets = [
             terrains=terrains.get("eve"),
             terrain_lod=base_planet_lod,
             clouds=clouds.get("eve"),
+            wind_speed=0.03,
             color_mode="solid",
             lighting=base_lighting,
             planet_rotation=Rotation(direction="right", speed=0.01, axis=["x"]),
@@ -76,8 +79,10 @@ def choose_planet():
     return planet_asset
 
 
-planet_asset = choose_planet()
-planet_assets = [planet_asset]
+# planet_asset = choose_planet()
+# planet_assets = [planet_asset]
 
-with open("last_planet.txt", mode="w", encoding="utf-8") as f:
-    f.write(planet_asset.name)
+# with open("last_planet.txt", mode="w", encoding="utf-8") as f:
+#     f.write(planet_asset.name)
+
+planet_assets = [planets[0]]
