@@ -105,20 +105,10 @@ class Rotation:
             self.axis = [self.axis]
 
 
+@dataclass
 class LevelOfDetail:
-    def __init__(self, value: Literal[1, 2, 3, 4] = 1, frequencies: list[float] = None, weights: list[float] = None):
-        self.value = value
-        self.frequencies = frequencies or self._gen_frequencies()
-        self.weights = weights or self._gen_weights()
-
-    def _gen_frequencies(self):
-        return [2**i for i in range(1, self.value + 1)]
-
-    def _gen_weights(self):
-        weights = [1.0 / (2**i) for i in range(self.value)]
-        # normalize so they sum up to 1
-        total_weight = sum(weights)
-        return [w / total_weight for w in weights]
+    frequency: int = 2
+    weight: float = 0.5
 
 
 @dataclass
@@ -127,7 +117,7 @@ class Clouds:
     color: RGB = RGB(255, 255, 255)
     alpha: int = 200  # should be normalized to float between 0 and 1 (also should be part of RGB as RGBA)
     threshold: int = 0.6
-    lod: LevelOfDetail = LevelOfDetail()
+    lod: LevelOfDetail = LevelOfDetail
     rotation: Rotation = Rotation
 
 
@@ -136,7 +126,7 @@ class PlanetConfig:
     radius: int = 10
     position: Vector = Vector(x=10, y=10)
     terrains: list[Terrain] = None
-    terrain_lod: LevelOfDetail = LevelOfDetail()
+    terrain_lod: LevelOfDetail = LevelOfDetail
     clouds: Clouds = None
     wind_speed: float = 0.01
     color_mode: Literal["solid", "change"] = "solid"

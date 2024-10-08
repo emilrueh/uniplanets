@@ -132,20 +132,24 @@ class Planet:
             return self.clouds.color, self.clouds.alpha
         return None, None
 
-    def _gen_texture(self, normals: tuple, lighting_power: float, lod: LevelOfDetail, gen_color: Callable, shift: float = 0):
+    @staticmethod
+    def _compute_noise(normals: tuple, lod: LevelOfDetail, shift: float = 0):
         norm_x, norm_y, norm_z = normals
 
-        noise_value = 0
-        for i in range(lod.value):
-            noise = opensimplex.noise3(
-                (norm_x * lod.frequencies[i]) + shift,
-                (norm_y * lod.frequencies[i]) + shift,
-                (norm_z * lod.frequencies[i]) + shift,
+        return (
+            opensimplex.noise3(
+                (norm_x * lod.frequency) + shift,
+                (norm_y * lod.frequency) + shift,
+                (norm_z * lod.frequency) + shift,
             )
-            noise_value += lod.weights[i] * noise
+            * lod.weight
+        )
+
+    def _gen_texture(self, normals: tuple, lighting_power: float, lod: LevelOfDetail, gen_color: Callable, shift: float = 0):
+        noise = self._compute_noise(normals, lod, shift)
 
         # Normalize range from [-1, 1] to [0, 1]
-        noise_value = (noise_value + 1) / 2
+        noise_value = (noise + 1) / 2
 
         color, alpha = gen_color(noise_value)
 
