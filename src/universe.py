@@ -33,12 +33,15 @@ class Planet:
         # clouds
         self.clouds = config.clouds
         self._cloud_radius = int(self.radius * self.clouds.height) if self.clouds else None
+        # wind
+        self.wind_speed = config.wind_speed
         # lighting
         self.lighting = config.lighting
         # rotation
         self.planet_rotation = config.planet_rotation
-        # etc
+        # internal flags
         self._color_was_changed = False
+        self._cloud_shift_increment = 0
 
     # lighting
 
@@ -129,12 +132,16 @@ class Planet:
             return self.clouds.color, self.clouds.alpha
         return None, None
 
-    def _gen_texture(self, normals: tuple, lighting_power: float, lod: LevelOfDetail, gen_color: Callable):
+    def _gen_texture(self, normals: tuple, lighting_power: float, lod: LevelOfDetail, gen_color: Callable, shift: float = 0):
         norm_x, norm_y, norm_z = normals
 
         noise_value = 0
         for i in range(lod.value):
-            noise = opensimplex.noise3(norm_x * lod.frequencies[i], norm_y * lod.frequencies[i], norm_z * lod.frequencies[i])
+            noise = opensimplex.noise3(
+                (norm_x * lod.frequencies[i]) + shift,
+                (norm_y * lod.frequencies[i]) + shift,
+                (norm_z * lod.frequencies[i]) + shift,
+            )
             noise_value += lod.weights[i] * noise
 
         # Normalize range from [-1, 1] to [0, 1]
@@ -154,7 +161,7 @@ class Planet:
 
     # main
 
-    def _draw_sphere(self, display: Surface, radius: int, lod: LevelOfDetail, texture_func: Callable, rotation: Rotation):
+    def _draw_sphere(self, display: Surface, radius: int, lod: LevelOfDetail, texture_func: Callable, rotation: Rotation, shift: int = 0):
         radius_sq = radius * radius
         inv_radius = 1 / radius
 
@@ -185,6 +192,7 @@ class Planet:
                 texture = self._gen_texture(
                     normals=(rotated_x, rotated_y, rotated_z),
                     lighting_power=lighting_power,
+                    shift=shift,
                     lod=lod,
                     gen_color=texture_func,
                 )
@@ -194,12 +202,28 @@ class Planet:
 
     def draw(self, screen: Surface):
         rotations = [self.planet_rotation]
+
         # Draw planet
-        self._draw_sphere(display=screen, radius=self.radius, lod=self.terrain_lod, texture_func=self._build_terrain, rotation=self.planet_rotation)
+        self._draw_sphere(
+            display=screen,
+            radius=self.radius,
+            lod=self.terrain_lod,
+            texture_func=self._build_terrain,
+            rotation=self.planet_rotation,
+        )
+
         # Draw clouds
         if self.clouds:
+            self._cloud_shift_increment += self.wind_speed
             rotations.append(self.clouds.rotation)
-            self._draw_sphere(display=screen, radius=self._cloud_radius, lod=self.clouds.lod, texture_func=self._build_clouds, rotation=self.clouds.rotation)
+            self._draw_sphere(
+                display=screen,
+                radius=self._cloud_radius,
+                lod=self.clouds.lod,
+                texture_func=self._build_clouds,
+                rotation=self.clouds.rotation,
+                shift=self._cloud_shift_increment,
+            )
 
         self._update_lighting()
         self._update_rotations(rotations)
