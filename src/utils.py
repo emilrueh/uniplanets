@@ -133,7 +133,6 @@ class Clouds:
 
 @dataclass
 class PlanetConfig:
-    name: str = "Earth"
     radius: int = 10
     position: Vector = Vector(x=10, y=10)
     terrains: list[Terrain] = None

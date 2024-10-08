@@ -21,7 +21,8 @@ import opensimplex
 
 
 class Planet:
-    def __init__(self, config: PlanetConfig):
+    def __init__(self, name: str, config: PlanetConfig):
+        self.name = name
         # display
         self.position = config.position
         self.radius = config.radius
