@@ -9,15 +9,23 @@ TODO:
 from pygame import Surface, SRCALPHA
 from math import sqrt, pi, cos, sin
 import numpy as np
+import opensimplex
 
 from src.utils import RGB, Terrain, Clouds, Vector, Lighting, Rotation, LevelOfDetail, PlanetConfig
 from src.utils import pick_random_color
 
+from dataclasses import dataclass
 from itertools import product
 from functools import reduce
+
 from typing import Literal, Callable
 
-import opensimplex
+
+@dataclass
+class DistantStar:
+    color: RGB
+    position: tuple[int, int]
+    size: int
 
 
 class Planet:

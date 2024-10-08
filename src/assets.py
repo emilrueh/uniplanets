@@ -1,4 +1,4 @@
-from src.universe import Planet
+from src.universe import Planet, DistantStar
 
 from src.utils import PlanetConfig, Vector, Lighting, Rotation, Terrain, Clouds, RGB, LevelOfDetail
 
@@ -7,6 +7,16 @@ from src.config import base_radius, base_position, base_lighting, base_planet_ro
 from src.config import terrains, clouds
 
 import random
+
+
+stars = [
+    DistantStar(
+        RGB(0, 0, 0),
+        position=((random.randint(1, screen_width), random.randint(1, screen_height))),
+        size=round(random.uniform(1, 2), 1),
+    )
+    for _ in range(50)
+]
 
 
 planets = [
@@ -102,4 +112,10 @@ def choose_planet():
 # with open("last_planet.txt", mode="w", encoding="utf-8") as f:
 #     f.write(planet_asset.name)
 
-planet_assets = [planets[4]]
+planet = [planets[0]]
+
+
+assets = dict(
+    planets=planets,
+    stars=stars,
+)
