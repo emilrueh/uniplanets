@@ -2,6 +2,7 @@ from math import sqrt
 from dataclasses import dataclass, field
 from random import randint
 from typing import Literal
+import random
 
 
 @dataclass(frozen=True)
@@ -42,19 +43,27 @@ def pick_random_color():
     return pick_color(RGB(r=randint(0, 255), g=randint(0, 255), b=randint(0, 255)))
 
 
+def set_time_of_day(time_of_day: Literal["day", "night", "morning", "noon", "evening", "random"] = "random") -> float:
+    match time_of_day:
+        case "night":
+            angle_of_light = 1.5
+        case "morning":
+            angle_of_light = 0.5
+        case "noon" | "day":
+            angle_of_light = -1.5
+        case "evening":
+            angle_of_light = -3.5
+        case _:
+            angle_of_light = round(random.uniform(-4, 4), 1)
+
+    return angle_of_light
+
+
 @dataclass
 class Terrain:
     name: str
     color: RGB
     threshold: float
-
-
-# @dataclass
-# class Clouds:
-#     color: RGB
-#     threshold: float = 0.5
-#     height: float = 30
-#     _radius: float = None
 
 
 class Vector:
@@ -86,8 +95,14 @@ class Lighting:
 class Rotation:
     direction: Literal["left", "right"] = "left"
     speed: float = 0.1
-    axis: Literal["x", "y", "z"] = "y"
+    axis: list[Literal["x", "y", "z"]] = None
     angle: float = 0.0
+
+    def __post_init__(self):
+        if not self.axis:
+            self.axis = "y"
+        if not isinstance(self.axis, list):
+            self.axis = [self.axis]
 
 
 class LevelOfDetail:
@@ -113,19 +128,20 @@ class Clouds:
     alpha: int = 200  # should be normalized to float between 0 and 1 (also should be part of RGB as RGBA)
     threshold: int = 0.6
     lod: LevelOfDetail = LevelOfDetail()
+    rotation: Rotation = Rotation
 
 
 @dataclass
 class PlanetConfig:
-    name: str = "Earth"
     radius: int = 10
     position: Vector = Vector(x=10, y=10)
     terrains: list[Terrain] = None
     terrain_lod: LevelOfDetail = LevelOfDetail()
-    clouds: Clouds = Clouds
+    clouds: Clouds = None
+    wind_speed: float = 0.01
     color_mode: Literal["solid", "change"] = "solid"
     lighting: Lighting = Lighting
-    rotation: Rotation = Rotation
+    planet_rotation: Rotation = Rotation
 
     def __post_init__(self):
         if not self.terrains:

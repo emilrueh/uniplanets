@@ -8,18 +8,21 @@ TODO:
 
 from pygame import Surface, SRCALPHA
 from math import sqrt, pi, cos, sin
+import numpy as np
 
 from src.utils import RGB, Terrain, Clouds, Vector, Lighting, Rotation, LevelOfDetail, PlanetConfig
 from src.utils import pick_random_color
 
 from itertools import product
+from functools import reduce
 from typing import Literal, Callable
 
 import opensimplex
 
 
 class Planet:
-    def __init__(self, config: PlanetConfig):
+    def __init__(self, name: str, config: PlanetConfig):
+        self.name = name
         # display
         self.position = config.position
         self.radius = config.radius
@@ -29,13 +32,16 @@ class Planet:
         self.color_mode = config.color_mode
         # clouds
         self.clouds = config.clouds
-        self._cloud_radius = int(self.radius * self.clouds.height)
+        self._cloud_radius = int(self.radius * self.clouds.height) if self.clouds else None
+        # wind
+        self.wind_speed = config.wind_speed
         # lighting
         self.lighting = config.lighting
         # rotation
-        self.rotation = config.rotation
-        # etc
+        self.planet_rotation = config.planet_rotation
+        # internal flags
         self._color_was_changed = False
+        self._cloud_shift_increment = 0
 
     # lighting
 
@@ -62,28 +68,48 @@ class Planet:
 
     # rotation
 
-    def _update_rotation(self):
-        if self.rotation.speed > 0:
-            if self.rotation.direction == "left":
-                self.rotation.angle += self.rotation.speed
-            else:
-                self.rotation.angle -= self.rotation.speed
-            # stabilize angles between [0, 2pi]
-            self.rotation.angle %= 2 * pi
+    def _update_rotations(self, rotations: list[Rotation]):
+        for rotation in rotations:
+            if rotation.speed > 0:
+                if rotation.direction == "left":
+                    rotation.angle += rotation.speed
+                else:
+                    rotation.angle -= rotation.speed
+                # stabilize angles between [0, 2pi]
+                rotation.angle %= 2 * pi
 
-    def _gen_rotation_matrix(self):
-        if self.rotation.axis == "y":
-            rotation_matrix = [
-                [cos(self.rotation.angle), 0, sin(self.rotation.angle)],
-                [0, 1, 0],
-                [-sin(self.rotation.angle), 0, cos(self.rotation.angle)],
-            ]
-        else:
-            raise ValueError(f"Rotation around the {self.rotation.axis}-axis has not been implemented yet! Choose the y-axis instead.")
-        return rotation_matrix
+    _multiply_matrices = staticmethod(lambda *matrices: matrices[0] if len(matrices) == 1 else reduce(np.dot, matrices))
 
-    def _rotate_normal(self, norm_x, norm_y, norm_z):
-        rotation_matrix = self._gen_rotation_matrix()
+    def _gen_rotation_matrix(self, rotation: Rotation) -> list[list] | None:
+        axis_rotation_matrices = []
+        if "x" in rotation.axis:
+            axis_rotation_matrices.append(
+                [
+                    [1, 0, 0],
+                    [0, cos(rotation.angle), -sin(rotation.angle)],
+                    [0, sin(rotation.angle), cos(rotation.angle)],
+                ]
+            )
+        if "y" in rotation.axis:
+            axis_rotation_matrices.append(
+                [
+                    [cos(rotation.angle), 0, sin(rotation.angle)],
+                    [0, 1, 0],
+                    [-sin(rotation.angle), 0, cos(rotation.angle)],
+                ]
+            )
+        if "z" in rotation.axis:
+            axis_rotation_matrices.append(
+                [
+                    [cos(rotation.angle), -sin(rotation.angle), 0],
+                    [sin(rotation.angle), cos(rotation.angle), 0],
+                    [0, 0, 1],
+                ]
+            )
+        return self._multiply_matrices(*axis_rotation_matrices) if axis_rotation_matrices else None
+
+    def _rotate_normal(self, norm_x, norm_y, norm_z, rotation: Rotation):
+        rotation_matrix = self._gen_rotation_matrix(rotation)
 
         rotated_x = rotation_matrix[0][0] * norm_x + rotation_matrix[0][1] * norm_y + rotation_matrix[0][2] * norm_z
         rotated_y = rotation_matrix[1][0] * norm_x + rotation_matrix[1][1] * norm_y + rotation_matrix[1][2] * norm_z
@@ -106,12 +132,16 @@ class Planet:
             return self.clouds.color, self.clouds.alpha
         return None, None
 
-    def _gen_texture(self, normals: tuple, lighting_power: float, lod: LevelOfDetail, gen_color: Callable):
+    def _gen_texture(self, normals: tuple, lighting_power: float, lod: LevelOfDetail, gen_color: Callable, shift: float = 0):
         norm_x, norm_y, norm_z = normals
 
         noise_value = 0
         for i in range(lod.value):
-            noise = opensimplex.noise3(norm_x * lod.frequencies[i], norm_y * lod.frequencies[i], norm_z * lod.frequencies[i])
+            noise = opensimplex.noise3(
+                (norm_x * lod.frequencies[i]) + shift,
+                (norm_y * lod.frequencies[i]) + shift,
+                (norm_z * lod.frequencies[i]) + shift,
+            )
             noise_value += lod.weights[i] * noise
 
         # Normalize range from [-1, 1] to [0, 1]
@@ -131,7 +161,7 @@ class Planet:
 
     # main
 
-    def _draw_sphere(self, display: Surface, radius: int, lod: LevelOfDetail, texture_func: Callable):
+    def _draw_sphere(self, display: Surface, radius: int, lod: LevelOfDetail, texture_func: Callable, rotation: Rotation, shift: int = 0):
         radius_sq = radius * radius
         inv_radius = 1 / radius
 
@@ -157,11 +187,12 @@ class Planet:
                 # Use lighting direction
                 lighting_power = max(norm_x * lighting_dir_x + norm_y * lighting_dir_y + norm_z * lighting_dir_z, 0) * self.lighting.intensity
                 # Use rotated normals for texture
-                rotated_x, rotated_y, rotated_z = self._rotate_normal(norm_x, norm_y, norm_z)
+                rotated_x, rotated_y, rotated_z = self._rotate_normal(norm_x, norm_y, norm_z, rotation=rotation)
 
                 texture = self._gen_texture(
                     normals=(rotated_x, rotated_y, rotated_z),
                     lighting_power=lighting_power,
+                    shift=shift,
                     lod=lod,
                     gen_color=texture_func,
                 )
@@ -170,13 +201,32 @@ class Planet:
         display.blit(sphere_surface, (self.position.x - radius, self.position.y - radius))
 
     def draw(self, screen: Surface):
-        self._update_lighting()
-        self._update_rotation()
+        rotations = [self.planet_rotation]
 
         # Draw planet
-        self._draw_sphere(display=screen, radius=self.radius, lod=self.terrain_lod, texture_func=self._build_terrain)
+        self._draw_sphere(
+            display=screen,
+            radius=self.radius,
+            lod=self.terrain_lod,
+            texture_func=self._build_terrain,
+            rotation=self.planet_rotation,
+        )
+
         # Draw clouds
-        self._draw_sphere(display=screen, radius=self._cloud_radius, lod=self.clouds.lod, texture_func=self._build_clouds)
+        if self.clouds:
+            self._cloud_shift_increment += self.wind_speed
+            rotations.append(self.clouds.rotation)
+            self._draw_sphere(
+                display=screen,
+                radius=self._cloud_radius,
+                lod=self.clouds.lod,
+                texture_func=self._build_clouds,
+                rotation=self.clouds.rotation,
+                shift=self._cloud_shift_increment,
+            )
+
+        self._update_lighting()
+        self._update_rotations(rotations)
 
         if self.color_mode == "change":
             self._change_color_when_dark()

@@ -1,9 +1,11 @@
-from src.utils import pick_color, RGB, Terrain, Clouds, Lighting, Rotation, Vector, LevelOfDetail
+from src.utils import pick_color, RGB, Terrain, Clouds, Lighting, Rotation, Vector, LevelOfDetail, set_time_of_day
+from typing import Literal
+import random
 
 
 # display settings
-resolution, upscale = "1920x1080", 0.05
-fps = 30
+resolution, upscale = "1920x1080", 0.2
+fps = 10
 
 screen_width, screen_height = int(int(resolution.split("x")[0]) * upscale), int(int(resolution.split("x")[-1]) * upscale)
 print(f"{screen_width}x{screen_height} {fps}fps")
@@ -12,10 +14,13 @@ display_caption = "UniPlanets"
 background_color = pick_color("black")
 
 # planet settings
-base_lighting = Lighting(angle=-1.5, speed=0.01, intensity=1.0)
-base_rotation = Rotation(direction="left", speed=0.01, axis="y", angle=0.0)
+
+angle_of_light = set_time_of_day("random")
+
+base_lighting = Lighting(angle=angle_of_light, speed=0.01, intensity=1.0)
+base_planet_rotation = Rotation(direction="left", speed=0.01, axis="y", angle=0.0)
 base_planet_lod = LevelOfDetail(1, frequencies=[2, 4, 8, 16], weights=[0.5, 0.25, 0.125, 0.125])
-base_clouds_lod = LevelOfDetail(3, frequencies=[4, 8, 16, 32], weights=[0.75, 0.125, 0.0625, 0.0625])
+base_clouds_lod = LevelOfDetail(1, frequencies=[4, 8, 16, 32], weights=[0.75, 0.125, 0.0625, 0.0625])
 base_radius = int(((screen_width + screen_height) // 4) * 0.6)
 base_position = Vector(x=screen_width // 2, y=screen_height // 2)
 
@@ -33,7 +38,7 @@ terrains = {
         Terrain(name="crater", color=RGB(32, 34, 35), threshold=float("inf")),
     ],
     "mars": [
-        Terrain(name="desert", color=RGB(160, 80, 43), threshold=0.6),
+        Terrain(name="desert", color=RGB(160, 80, 43), threshold=0.58),
         Terrain(name="mountain", color=RGB(214, 133, 83), threshold=float("inf")),
     ],
     "eve": [
@@ -43,5 +48,28 @@ terrains = {
 }
 
 clouds = {
-    "earth": Clouds(height=1.1, color=RGB(255, 255, 255), alpha=200, threshold=0.6, lod=base_clouds_lod),
+    "earth": Clouds(
+        height=1.1,
+        color=RGB(255, 255, 255),
+        alpha=180,
+        threshold=0.6,
+        lod=base_clouds_lod,
+        rotation=Rotation(direction="left", speed=0.001, axis=["y", "z"]),
+    ),
+    "mars": Clouds(
+        height=1.2,
+        color=RGB(255, 220, 160),
+        alpha=150,
+        threshold=0.68,
+        lod=base_clouds_lod,
+        rotation=Rotation(direction="right", speed=0.005, axis=["y", "z"]),
+    ),
+    "eve": Clouds(
+        height=1.15,
+        color=RGB(150, 150, 255),
+        alpha=100,
+        threshold=0.5,
+        lod=base_clouds_lod,
+        rotation=Rotation(direction="left", speed=0.01, axis=["x", "z"]),
+    ),
 }
