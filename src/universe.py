@@ -6,7 +6,7 @@ TODO:
 - allow x and z rotation for clouds
 """
 
-from pygame import Surface, SRCALPHA
+from pygame import Surface, SRCALPHA, surfarray
 from math import sqrt, pi, cos, sin
 import numpy as np
 import opensimplex
@@ -19,6 +19,8 @@ from itertools import product
 from functools import reduce
 
 from typing import Literal, Callable
+
+from concurrent.futures import ProcessPoolExecutor
 
 
 @dataclass
@@ -50,6 +52,7 @@ class Planet:
         # internal flags
         self._color_was_changed = False
         self._cloud_shift_increment = 0
+        # self.terrain_texture = self._generate_terrain_texture()
 
     # lighting
 
@@ -59,10 +62,10 @@ class Planet:
             if self.lighting.angle <= -2 * pi:
                 self.lighting.angle += 2 * pi  # Wrap around after full circle
                 self._color_was_changed = False
-            self.lighting._direction = self._compute_lighting_direction(self.lighting.angle)
+            self.lighting._direction = self._compute_angle_lighting_direction(self.lighting.angle)
 
     @staticmethod
-    def _compute_lighting_direction(angle) -> Vector:
+    def _compute_angle_lighting_direction(angle) -> Vector:
         return Vector(cos(angle), 0, sin(angle))
 
     def _change_color_when_dark(self):
@@ -73,6 +76,25 @@ class Planet:
                 terrain.color = pick_random_color()
 
             self._color_was_changed = True
+
+    def _get_inverted_lighting_normals(self):
+        lighting_dir_x = -self.lighting._direction.x
+        lighting_dir_y = -self.lighting._direction.y
+        lighting_dir_z = -self.lighting._direction.z
+        length = sqrt(lighting_dir_x**2 + lighting_dir_y**2 + lighting_dir_z**2)
+        if length != 0:
+            lighting_dir_x /= length
+            lighting_dir_y /= length
+            lighting_dir_z /= length
+
+        return lighting_dir_x, lighting_dir_y, lighting_dir_z
+
+    def _compute_lighting_power(self, normals: tuple, lighting_directions: tuple):
+        norm_x, norm_y, norm_z = normals
+        lighting_dir_x, lighting_dir_y, lighting_dir_z = lighting_directions
+
+        lighting_power = max(norm_x * lighting_dir_x + norm_y * lighting_dir_y + norm_z * lighting_dir_z, 0) * self.lighting.intensity
+        return lighting_power
 
     # rotation
 
@@ -116,7 +138,7 @@ class Planet:
             )
         return self._multiply_matrices(*axis_rotation_matrices) if axis_rotation_matrices else None
 
-    def _rotate_normal(self, norm_x, norm_y, norm_z, rotation: Rotation):
+    def _rotate_normals(self, norm_x, norm_y, norm_z, rotation: Rotation):
         rotation_matrix = self._gen_rotation_matrix(rotation)
 
         rotated_x = rotation_matrix[0][0] * norm_x + rotation_matrix[0][1] * norm_y + rotation_matrix[0][2] * norm_z
@@ -141,7 +163,7 @@ class Planet:
         return None, None
 
     @staticmethod
-    def _compute_noise(normals: tuple, lod: LevelOfDetail, shift: float = 0):
+    def _gen_noise(normals: tuple, lod: LevelOfDetail, shift: float = 0):
         norm_x, norm_y, norm_z = normals
 
         return (
@@ -154,7 +176,7 @@ class Planet:
         )
 
     def _gen_texture(self, normals: tuple, lighting_power: float, lod: LevelOfDetail, gen_color: Callable, shift: float = 0):
-        noise = self._compute_noise(normals, lod, shift)
+        noise = self._gen_noise(normals, lod, shift)
 
         # Normalize range from [-1, 1] to [0, 1]
         noise_value = (noise + 1) / 2
@@ -173,34 +195,25 @@ class Planet:
 
     # main
 
-    def _draw_sphere(self, display: Surface, radius: int, lod: LevelOfDetail, texture_func: Callable, rotation: Rotation, shift: int = 0):
+    def _get_normals(self, x, y, inv_radius):
+        norm_x = x * inv_radius
+        norm_y = y * inv_radius
+        norm_z = sqrt(max(0, 1 - (x * x + y * y) * inv_radius * inv_radius))
+
+        return norm_x, norm_y, norm_z
+
+    def _draw_sphere_texture(self, radius: int, lod: LevelOfDetail, texture_func: Callable, rotation: Rotation, shift: int = 0):
         radius_sq = radius * radius
         inv_radius = 1 / radius
+        lighting_directions = self._get_inverted_lighting_normals()
 
-        lighting_dir_x = -self.lighting._direction.x
-        lighting_dir_y = -self.lighting._direction.y
-        lighting_dir_z = -self.lighting._direction.z
-        length = sqrt(lighting_dir_x**2 + lighting_dir_y**2 + lighting_dir_z**2)
-        if length != 0:
-            lighting_dir_x /= length
-            lighting_dir_y /= length
-            lighting_dir_z /= length
+        texture_data = {}
 
-        sphere_surface = Surface((2 * radius, 2 * radius), SRCALPHA)
-
-        # draw every pixel onto x and y radius axis
         for x, y in product(range(-radius, radius), repeat=2):
             if (x * x) + (y * y) <= radius_sq:
-                # Calculate normals
-                norm_x = x * inv_radius
-                norm_y = y * inv_radius
-                norm_z = sqrt(max(0, 1 - (x * x + y * y) * inv_radius * inv_radius))
-
-                # Use lighting direction
-                lighting_power = max(norm_x * lighting_dir_x + norm_y * lighting_dir_y + norm_z * lighting_dir_z, 0) * self.lighting.intensity
-                # Use rotated normals for texture
-                rotated_x, rotated_y, rotated_z = self._rotate_normal(norm_x, norm_y, norm_z, rotation=rotation)
-
+                norm_x, norm_y, norm_z = self._get_normals(x, y, inv_radius)
+                lighting_power = self._compute_lighting_power((norm_x, norm_y, norm_z), lighting_directions)
+                rotated_x, rotated_y, rotated_z = self._rotate_normals(norm_x, norm_y, norm_z, rotation=rotation)
                 texture = self._gen_texture(
                     normals=(rotated_x, rotated_y, rotated_z),
                     lighting_power=lighting_power,
@@ -208,37 +221,52 @@ class Planet:
                     lod=lod,
                     gen_color=texture_func,
                 )
+                texture_data[(x + radius, y + radius)] = texture
 
-                sphere_surface.set_at((x + radius, y + radius), texture)
-        display.blit(sphere_surface, (self.position.x - radius, self.position.y - radius))
+        return texture_data
+
+    def _gen_terrain_and_clouds_surfacec(self):
+        with ProcessPoolExecutor() as executor:
+            future_terrain = executor.submit(self._draw_sphere_texture, self.radius, self.terrain_lod, self._build_terrain, self.planet_rotation)
+
+            clouds_future = None
+            if self.clouds:
+                self._cloud_shift_increment += self.wind_speed
+                clouds_future = executor.submit(
+                    self._draw_sphere_texture, self._cloud_radius, self.clouds.lod, self._build_clouds, self.clouds.rotation, self._cloud_shift_increment
+                )
+
+            # Collect results
+            terrain_surface = self._process_texture_result(future_terrain, self.radius)
+
+            clouds_surface = None
+            if clouds_future:
+                clouds_surface = self._process_texture_result(clouds_future, self._cloud_radius)
+
+        return terrain_surface, clouds_surface
+
+    def _process_texture_result(self, future, radius):
+        texture_data = future.result()
+        surface = Surface((2 * radius, 2 * radius), SRCALPHA)
+
+        for pos, color in texture_data.items():
+            surface.set_at(pos, color)
+
+        return surface
+
+    def _blit_surface(self, screen, surface, x, y, radius):
+        screen.blit(surface, (x - radius, y - radius))
 
     def draw(self, screen: Surface):
-        rotations = [self.planet_rotation]
+        terrain_surface, clouds_surface = self._gen_terrain_and_clouds_surfacec()
 
-        # Draw planet
-        self._draw_sphere(
-            display=screen,
-            radius=self.radius,
-            lod=self.terrain_lod,
-            texture_func=self._build_terrain,
-            rotation=self.planet_rotation,
-        )
+        self._blit_surface(screen, terrain_surface, self.position.x, self.position.y, self.radius)
+        if clouds_surface:
+            self._blit_surface(screen, clouds_surface, self.position.x, self.position.y, self._cloud_radius)
 
-        # Draw clouds
-        if self.clouds:
-            self._cloud_shift_increment += self.wind_speed
-            rotations.append(self.clouds.rotation)
-            self._draw_sphere(
-                display=screen,
-                radius=self._cloud_radius,
-                lod=self.clouds.lod,
-                texture_func=self._build_clouds,
-                rotation=self.clouds.rotation,
-                shift=self._cloud_shift_increment,
-            )
-
+        # Update lighting and rotations
         self._update_lighting()
-        self._update_rotations(rotations)
+        self._update_rotations([self.planet_rotation, self.clouds.rotation])
 
         if self.color_mode == "change":
             self._change_color_when_dark()
