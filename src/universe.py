@@ -202,14 +202,16 @@ class Planet:
 
         return norm_x, norm_y, norm_z
 
-    def _draw_sphere_texture(self, radius: int, lod: LevelOfDetail, texture_func: Callable, rotation: Rotation, shift: int = 0):
+    def _draw_sphere_texture_chunk(
+        self, radius: int, lod: LevelOfDetail, texture_func: Callable, rotation: Rotation, shift: int, x_start: int, x_end: int, y_start: int, y_end: int
+    ):
         radius_sq = radius * radius
         inv_radius = 1 / radius
         lighting_directions = self._get_inverted_lighting_normals()
 
         texture_data = {}
 
-        for x, y in product(range(-radius, radius), repeat=2):
+        for x, y in product(range(x_start, x_end), range(y_start, y_end)):
             if (x * x) + (y * y) <= radius_sq:
                 norm_x, norm_y, norm_z = self._get_normals(x, y, inv_radius)
                 lighting_power = self._compute_lighting_power((norm_x, norm_y, norm_z), lighting_directions)
@@ -225,15 +227,40 @@ class Planet:
 
         return texture_data
 
+    def _draw_sphere_texture_parallel(self, radius: int, lod: LevelOfDetail, texture_func: Callable, rotation: Rotation, shift: int = 0):
+        num_chunks = 4  # Divide into quadrants
+        chunk_size = radius  # Each chunk should cover half of the sphere in both x and y directions
+        futures = []
+
+        with ProcessPoolExecutor() as executor:
+            for i in range(num_chunks):
+                x_start = (i % 2) * chunk_size - radius
+                x_end = x_start + chunk_size
+                y_start = (i // 2) * chunk_size - radius
+                y_end = y_start + chunk_size
+
+                futures.append(executor.submit(self._draw_sphere_texture_chunk, radius, lod, texture_func, rotation, shift, x_start, x_end, y_start, y_end))
+
+            texture_data = {}
+            for future in futures:
+                texture_data.update(future.result())
+
+        return texture_data
+
     def _gen_terrain_and_clouds_surfacec(self):
         with ProcessPoolExecutor() as executor:
-            future_terrain = executor.submit(self._draw_sphere_texture, self.radius, self.terrain_lod, self._build_terrain, self.planet_rotation)
+            future_terrain = executor.submit(self._draw_sphere_texture_parallel, self.radius, self.terrain_lod, self._build_terrain, self.planet_rotation)
 
             clouds_future = None
             if self.clouds:
                 self._cloud_shift_increment += self.wind_speed
                 clouds_future = executor.submit(
-                    self._draw_sphere_texture, self._cloud_radius, self.clouds.lod, self._build_clouds, self.clouds.rotation, self._cloud_shift_increment
+                    self._draw_sphere_texture_parallel,
+                    self._cloud_radius,
+                    self.clouds.lod,
+                    self._build_clouds,
+                    self.clouds.rotation,
+                    self._cloud_shift_increment,
                 )
 
             # Collect results
