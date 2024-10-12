@@ -1,11 +1,3 @@
-"""
-TODO:
-- align terrain and clouds
-- clean up utils default argument mess
-- implement cloud and tectonic shifts
-- allow x and z rotation for clouds
-"""
-
 from pygame import Surface, SRCALPHA, surfarray
 from math import sqrt, pi, cos, sin
 import numpy as np
@@ -89,11 +81,9 @@ class Planet:
 
         return lighting_dir_x, lighting_dir_y, lighting_dir_z
 
-    def _compute_lighting_power(self, normals: tuple, lighting_directions: tuple):
+    def _compute_lighting(self, normals: tuple, lighting_directions):
         norm_x, norm_y, norm_z = normals
-        lighting_dir_x, lighting_dir_y, lighting_dir_z = lighting_directions
-
-        lighting_power = max(norm_x * lighting_dir_x + norm_y * lighting_dir_y + norm_z * lighting_dir_z, 0) * self.lighting.intensity
+        lighting_power = max(norm_x * lighting_directions[0] + norm_y * lighting_directions[1] + norm_z * lighting_directions[2], 0) * self.lighting.intensity
         return lighting_power
 
     # rotation
@@ -196,17 +186,22 @@ class Planet:
     # main
 
     def _get_normals(self, x, y, inv_radius):
-        norm_x = x * inv_radius
-        norm_y = y * inv_radius
-        norm_z = sqrt(max(0, 1 - (x * x + y * y) * inv_radius * inv_radius))
-
-        return norm_x, norm_y, norm_z
+        return x * inv_radius, y * inv_radius, sqrt(max(0, 1 - (x * x + y * y) * inv_radius * inv_radius))
 
     def _draw_sphere_texture_chunk(
-        self, radius: int, lod: LevelOfDetail, texture_func: Callable, rotation: Rotation, shift: int, x_start: int, x_end: int, y_start: int, y_end: int
+        self,
+        radius: int,
+        radius_sq: int,
+        inv_radius: float,
+        lod: LevelOfDetail,
+        texture_func: Callable,
+        rotation: Rotation,
+        shift: int,
+        x_start: int,
+        x_end: int,
+        y_start: int,
+        y_end: int,
     ):
-        radius_sq = radius * radius
-        inv_radius = 1 / radius
         lighting_directions = self._get_inverted_lighting_normals()
 
         texture_data = {}
@@ -214,7 +209,7 @@ class Planet:
         for x, y in product(range(x_start, x_end), range(y_start, y_end)):
             if (x * x) + (y * y) <= radius_sq:
                 norm_x, norm_y, norm_z = self._get_normals(x, y, inv_radius)
-                lighting_power = self._compute_lighting_power((norm_x, norm_y, norm_z), lighting_directions)
+                lighting_power = self._compute_lighting((norm_x, norm_y, norm_z), lighting_directions)
                 rotated_x, rotated_y, rotated_z = self._rotate_normals(norm_x, norm_y, norm_z, rotation=rotation)
                 texture = self._gen_texture(
                     normals=(rotated_x, rotated_y, rotated_z),
@@ -227,10 +222,20 @@ class Planet:
 
         return texture_data
 
-    def _draw_sphere_texture_parallel(self, radius: int, lod: LevelOfDetail, texture_func: Callable, rotation: Rotation, shift: int = 0):
+    def _draw_sphere_texture_parallel(
+        self,
+        radius: int,
+        lod: LevelOfDetail,
+        texture_func: Callable,
+        rotation: Rotation,
+        shift: int = 0,
+    ):
         num_chunks = 12  # Set number of chunks equal to the number of CPU cores
         chunk_size = int(sqrt(num_chunks))  # Calculate chunk size
         futures = []
+
+        radius_sq = radius * radius
+        inv_radius = 1 / radius
 
         with ProcessPoolExecutor() as executor:
             for i in range(num_chunks):
@@ -239,7 +244,22 @@ class Planet:
                 y_start = (i // chunk_size) * (2 * radius // chunk_size) - radius
                 y_end = y_start + (2 * radius // chunk_size)
 
-                futures.append(executor.submit(self._draw_sphere_texture_chunk, radius, lod, texture_func, rotation, shift, x_start, x_end, y_start, y_end))
+                futures.append(
+                    executor.submit(
+                        self._draw_sphere_texture_chunk,
+                        radius,
+                        radius_sq,
+                        inv_radius,
+                        lod,
+                        texture_func,
+                        rotation,
+                        shift,
+                        x_start,
+                        x_end,
+                        y_start,
+                        y_end,
+                    )
+                )
 
             texture_data = {}
             for future in futures:
@@ -247,7 +267,7 @@ class Planet:
 
         return texture_data
 
-    def _gen_terrain_and_clouds_surfacec(self):
+    def _gen_terrain_and_clouds_surfaces(self):
         with ProcessPoolExecutor() as executor:
             future_terrain = executor.submit(self._draw_sphere_texture_parallel, self.radius, self.terrain_lod, self._build_terrain, self.planet_rotation)
 
@@ -285,7 +305,7 @@ class Planet:
         screen.blit(surface, (x - radius, y - radius))
 
     def draw(self, screen: Surface):
-        terrain_surface, clouds_surface = self._gen_terrain_and_clouds_surfacec()
+        terrain_surface, clouds_surface = self._gen_terrain_and_clouds_surfaces()
 
         self._blit_surface(screen, terrain_surface, self.position.x, self.position.y, self.radius)
         if clouds_surface:
