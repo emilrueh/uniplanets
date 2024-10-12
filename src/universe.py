@@ -228,16 +228,16 @@ class Planet:
         return texture_data
 
     def _draw_sphere_texture_parallel(self, radius: int, lod: LevelOfDetail, texture_func: Callable, rotation: Rotation, shift: int = 0):
-        num_chunks = 4  # Divide into quadrants
-        chunk_size = radius  # Each chunk should cover half of the sphere in both x and y directions
+        num_chunks = 12  # Set number of chunks equal to the number of CPU cores
+        chunk_size = int(sqrt(num_chunks))  # Calculate chunk size
         futures = []
 
         with ProcessPoolExecutor() as executor:
             for i in range(num_chunks):
-                x_start = (i % 2) * chunk_size - radius
-                x_end = x_start + chunk_size
-                y_start = (i // 2) * chunk_size - radius
-                y_end = y_start + chunk_size
+                x_start = (i % chunk_size) * (2 * radius // chunk_size) - radius
+                x_end = x_start + (2 * radius // chunk_size)
+                y_start = (i // chunk_size) * (2 * radius // chunk_size) - radius
+                y_end = y_start + (2 * radius // chunk_size)
 
                 futures.append(executor.submit(self._draw_sphere_texture_chunk, radius, lod, texture_func, rotation, shift, x_start, x_end, y_start, y_end))
 
