@@ -7,6 +7,10 @@ import random
 resolution, upscale = "1920x1080", 0.1
 fps = 30
 
+if upscale > 0.1:
+    print("\nWARNING: resolution upscale has been set to at least 0.1 due to cloud shadows bug in current implementation!\n")
+    upscale = 0.1
+
 screen_width, screen_height = int(int(resolution.split("x")[0]) * upscale), int(int(resolution.split("x")[-1]) * upscale)
 print(f"{screen_width}x{screen_height} {fps}fps")
 
@@ -31,8 +35,8 @@ terrains = {
         Terrain(name="forest", color=RGB(84, 161, 109), threshold=float("inf")),
     ],
     "moon": [
-        Terrain(name="dust", color=RGB(65, 70, 73), threshold=0.4),
-        Terrain(name="rim", color=RGB(45, 48, 51), threshold=0.7),
+        Terrain(name="dust", color=RGB(65, 70, 73), threshold=0.43),
+        Terrain(name="rim", color=RGB(45, 48, 51), threshold=0.54),
         Terrain(name="crater", color=RGB(32, 34, 35), threshold=float("inf")),
     ],
     "mars": [
