@@ -7,6 +7,8 @@ from src.config import screen_width, screen_height, fps, display_caption, backgr
 
 from src.assets import assets
 
+# from random import randint
+
 
 def draw_planets(planets: list, screen: pg.Surface):
     for planet in planets:
@@ -15,9 +17,16 @@ def draw_planets(planets: list, screen: pg.Surface):
 
 def draw_stars(stars: list, brightness: int, screen: pg.Surface):
     for star in stars:
-        r = min(star.color.r + brightness, 100)
-        g = min(star.color.g + brightness, 100)
-        b = min(star.color.b + brightness, 100)
+        r = star.color.r
+        g = star.color.g
+        b = star.color.b
+
+        # # TODO: flickering stars
+        # # - every channel needs to have the same brightness so every star flickers white
+        # random_brightness = brightness + randint(-10, 10)
+        # r, g, b = [min(abs(channel + random_brightness), 100) for channel in [r, g, b]]
+
+        r, g, b = [min(abs(channel + brightness), 100) for channel in [r, g, b]]
 
         pg.draw.circle(
             screen,
@@ -40,7 +49,7 @@ def gameloop():
 
     # tracking
     fps_coll = []
-    star_brightness = min(0, 10)
+    star_brightness = 0
 
     # start
     try:
@@ -52,9 +61,15 @@ def gameloop():
             # reset frame
             screen.fill((background_color.r, background_color.g, background_color.b))
 
-            # display assets
-            draw_stars(stars, star_brightness := star_brightness + 1, screen)
+            # ---
+            # display assets:
+
+            if screen_width > 200:
+                draw_stars(stars, star_brightness := star_brightness + 1, screen)
+
             draw_planets(planets, screen)
+
+            # ---
 
             # update screen
             pg.display.flip()
