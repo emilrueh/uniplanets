@@ -27,12 +27,12 @@ planets = [
             radius=base_radius,
             position=base_position,
             terrains=terrains.get("earth"),
-            terrain_lod=LevelOfDetail(),
+            terrain_lod=LevelOfDetail(3, 1.1),
             clouds=clouds.get("earth"),
             wind_speed=0.01,
             color_mode="solid",
             lighting=base_lighting,
-            planet_rotation=Rotation(direction="left", speed=0.01, axis=["x", "y"]),
+            planet_rotation=Rotation(direction="left", speed=0.003, axis=["x", "y"]),
         ),
     ),
     Planet(
@@ -112,7 +112,7 @@ def choose_planet():
 # with open("last_planet.txt", mode="w", encoding="utf-8") as f:
 #     f.write(planet_asset.name)
 
-planet = [planets[0]]
+planets = [planets[1]]
 
 
 assets = dict(
