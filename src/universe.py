@@ -152,30 +152,34 @@ class Planet:
             return self.clouds.color, self.clouds.alpha
         return None, None
 
-    def _calculate_cloud_shadow(self, normals: tuple, cloud_normals: tuple) -> float:
-        # Cast shadow using the provided formula
-        light_direction_inv = Vector(-self.lighting._direction.x, -self.lighting._direction.y, -self.lighting._direction.z)
-
-        value = (Vector(normals[0], normals[1], normals[2]) + light_direction_inv * (self._cloud_radius - self.radius)).normalize()
-
-        # Get cloud noise function for the new computed value
-        cloud_noise_value = opensimplex.noise3(value.x * self.clouds.lod.frequency, value.y * self.clouds.lod.frequency, value.z * self.clouds.lod.frequency)
-
-        return cloud_noise_value
-
     def _apply_cloud_shadows(self, terrain_surface: Surface, clouds_surface: Surface) -> Surface:
-        shadow_intensity = 0.7  # Shadow multiplier to darken color
+        shadow_intensity = 0.7  # Shadow multiplier to darken color (1 is fully transparent)
+        shadow_strength = 3  # Scale how far shadows move with light BUG: has to be set below pi for some reason ??
+
         width, height = terrain_surface.get_size()
 
-        for x in range(width):
-            for y in range(height):
-                cloud_pixel = clouds_surface.get_at((x, y))
-                if cloud_pixel.a > 0:  # There is a cloud at this location
-                    terrain_pixel = terrain_surface.get_at((x, y))
-                    r = int(terrain_pixel.r * shadow_intensity)
-                    g = int(terrain_pixel.g * shadow_intensity)
-                    b = int(terrain_pixel.b * shadow_intensity)
-                    terrain_surface.set_at((x, y), (r, g, b, terrain_pixel.a))
+        # Get the current lighting direction
+        light_dir_x = self.lighting._direction.x - 1.5
+        light_dir_y = self.lighting._direction.y - 1.5 + 1
+
+        x_shadow_offset = int(light_dir_x * shadow_strength)
+        y_shadow_offset = int(light_dir_y * shadow_strength)
+
+        for x, y in product(range(width), range(height)):
+            # Apply shadow offsets to cloud position
+            cloud_x = x - x_shadow_offset
+            cloud_y = y - y_shadow_offset
+
+            cloud_pixel = clouds_surface.get_at((cloud_x, cloud_y))
+            if cloud_pixel.a > 0:  # There is a cloud at this location
+                terrain_pixel = terrain_surface.get_at((x, y))
+
+                # Apply shadow by darkening the terrain color
+                r = int(terrain_pixel.r * shadow_intensity)
+                g = int(terrain_pixel.g * shadow_intensity)
+                b = int(terrain_pixel.b * shadow_intensity)
+
+                terrain_surface.set_at((x, y), (r, g, b, terrain_pixel.a))
 
         return terrain_surface
 
