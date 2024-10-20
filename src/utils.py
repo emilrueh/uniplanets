@@ -120,6 +120,11 @@ class Clouds:
     lod: LevelOfDetail = LevelOfDetail
     rotation: Rotation = Rotation
 
+    def __post_init__(self):
+        if self.height < 1.1:
+            print("\nWARNING: cloud.height reset to at least 1.1 due to cloud shadows bug in current implementation!\n")
+            self.height = 1.1
+
 
 @dataclass
 class PlanetConfig:
