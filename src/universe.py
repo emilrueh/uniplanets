@@ -153,14 +153,14 @@ class Planet:
         return None, None
 
     def _apply_cloud_shadows(self, terrain_surface: Surface, clouds_surface: Surface) -> Surface:
-        shadow_intensity = 0.7  # Shadow multiplier to darken color (1 is fully transparent)
+        shadow_intensity = 0.6  # Shadow multiplier to darken color (1 is fully transparent)
         shadow_strength = 3  # Scale how far shadows move with light BUG: has to be set below pi for some reason ??
 
         width, height = terrain_surface.get_size()
 
         # Get the current lighting direction
         light_dir_x = self.lighting._direction.x - 1.5
-        light_dir_y = self.lighting._direction.y - 1.5 + 1
+        light_dir_y = self.lighting._direction.y - 1
 
         x_shadow_offset = int(light_dir_x * shadow_strength)
         y_shadow_offset = int(light_dir_y * shadow_strength)
@@ -344,17 +344,19 @@ class Planet:
 
     def draw(self, screen: Surface):
         terrain_surface, clouds_surface = self._gen_terrain_and_clouds_surfaces()
+        rotations = [self.planet_rotation]
 
         # TODO: atmospheric affects: new sphere with gradient opacity
         # - perhaps even scattering calculated from the light direction
 
         self._blit_surface(screen, terrain_surface, self.position.x, self.position.y, self.radius)
         if clouds_surface:
+            rotations.append(self.clouds.rotation)
             self._blit_surface(screen, clouds_surface, self.position.x, self.position.y, self._cloud_radius)
 
         # Update lighting and rotations
         self._update_lighting()
-        self._update_rotations([self.planet_rotation, self.clouds.rotation])
+        self._update_rotations(rotations)
 
         if self.color_mode == "change":
             self._change_color_when_dark()
