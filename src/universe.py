@@ -152,9 +152,39 @@ class Planet:
             return self.clouds.color, self.clouds.alpha
         return None, None
 
+    def _calculate_cloud_shadow(self, normals: tuple, cloud_normals: tuple) -> float:
+        # Cast shadow using the provided formula
+        light_direction_inv = Vector(-self.lighting._direction.x, -self.lighting._direction.y, -self.lighting._direction.z)
+
+        value = (Vector(normals[0], normals[1], normals[2]) + light_direction_inv * (self._cloud_radius - self.radius)).normalize()
+
+        # Get cloud noise function for the new computed value
+        cloud_noise_value = opensimplex.noise3(value.x * self.clouds.lod.frequency, value.y * self.clouds.lod.frequency, value.z * self.clouds.lod.frequency)
+
+        return cloud_noise_value
+
+    def _apply_cloud_shadows(self, terrain_surface: Surface, clouds_surface: Surface) -> Surface:
+        shadow_intensity = 0.7  # Shadow multiplier to darken color
+        width, height = terrain_surface.get_size()
+
+        for x in range(width):
+            for y in range(height):
+                cloud_pixel = clouds_surface.get_at((x, y))
+                if cloud_pixel.a > 0:  # There is a cloud at this location
+                    terrain_pixel = terrain_surface.get_at((x, y))
+                    r = int(terrain_pixel.r * shadow_intensity)
+                    g = int(terrain_pixel.g * shadow_intensity)
+                    b = int(terrain_pixel.b * shadow_intensity)
+                    terrain_surface.set_at((x, y), (r, g, b, terrain_pixel.a))
+
+        return terrain_surface
+
     @staticmethod
     def _gen_noise(normals: tuple, lod: LevelOfDetail, shift: float = 0):
         norm_x, norm_y, norm_z = normals
+
+        # TODO: dynamic lod: performance increase by reducing lod when unlit
+        # NOTE: is it correct to implement this here tho?
 
         return (
             opensimplex.noise3(
@@ -290,6 +320,10 @@ class Planet:
             if clouds_future:
                 clouds_surface = self._process_texture_result(clouds_future, self._cloud_radius)
 
+            # Now that both surfaces are created, apply cloud shadows to terrain
+            if clouds_surface and terrain_surface:
+                terrain_surface = self._apply_cloud_shadows(terrain_surface, clouds_surface)
+
         return terrain_surface, clouds_surface
 
     def _process_texture_result(self, future, radius):
@@ -306,6 +340,9 @@ class Planet:
 
     def draw(self, screen: Surface):
         terrain_surface, clouds_surface = self._gen_terrain_and_clouds_surfaces()
+
+        # TODO: atmospheric affects: new sphere with gradient opacity
+        # - perhaps even scattering calculated from the light direction
 
         self._blit_surface(screen, terrain_surface, self.position.x, self.position.y, self.radius)
         if clouds_surface:
