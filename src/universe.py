@@ -159,7 +159,7 @@ class Planet:
         width, height = terrain_surface.get_size()
 
         # Get the current lighting direction
-        light_dir_x = self.lighting._direction.x - 1.5
+        light_dir_x = self.lighting._direction.x - 2
         light_dir_y = self.lighting._direction.y - 1
 
         x_shadow_offset = int(light_dir_x * shadow_strength)
