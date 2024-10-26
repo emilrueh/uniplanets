@@ -49,28 +49,7 @@ class Planet:
         self._cloud_shift_increment = 0
         # self.terrain_texture = self._generate_terrain_texture()
 
-    # lighting
-
-    def _update_lighting(self):
-        if self.lighting.speed > 0:
-            self.lighting.angle -= self.lighting.speed  # Increment angle
-            if self.lighting.angle <= -2 * pi:
-                self.lighting.angle += 2 * pi  # Wrap around after full circle
-                self._color_was_changed = False
-            self.lighting._direction = self._compute_angle_lighting_direction(self.lighting.angle)
-
-    @staticmethod
-    def _compute_angle_lighting_direction(angle) -> Vector:
-        return Vector(cos(angle), 0, sin(angle))
-
-    def _change_color_when_dark(self):
-        is_dark = -4.9 < self.lighting.angle < -4.6
-
-        if is_dark and not self._color_was_changed:
-            for terrain in self.terrains:
-                terrain.color = pick_random_color()
-
-            self._color_was_changed = True
+    # LIGHTING
 
     def _get_inverted_lighting_normals(self):
         lighting_dir_x = -self.lighting._direction.x
@@ -89,46 +68,41 @@ class Planet:
         lighting_power = max(norm_x * lighting_directions[0] + norm_y * lighting_directions[1] + norm_z * lighting_directions[2], 0) * self.lighting.intensity
         return lighting_power
 
-    # rotation
+    @staticmethod
+    def _compute_angle_lighting_direction(angle) -> Vector:
+        return Vector(cos(angle), 0, sin(angle))
 
-    def _update_rotations(self, rotations: list[Rotation]):
-        for rotation in rotations:
-            if rotation.speed > 0:
-                if rotation.direction == "left":
-                    rotation.angle += rotation.speed
-                else:
-                    rotation.angle -= rotation.speed
-                # stabilize angles between [0, 2pi]
-                rotation.angle %= 2 * pi
+    def _update_lighting(self):
+        if self.lighting.speed > 0:
+            self.lighting.angle -= self.lighting.speed  # Increment angle
+            if self.lighting.angle <= -2 * pi:
+                self.lighting.angle += 2 * pi  # Wrap around after full circle
+                self._color_was_changed = False
+            self.lighting._direction = self._compute_angle_lighting_direction(self.lighting.angle)
+
+    def _change_color_when_dark(self):
+        is_dark = -4.9 < self.lighting.angle < -4.6
+
+        if is_dark and not self._color_was_changed:
+            for terrain in self.terrains:
+                terrain.color = pick_random_color()
+
+            self._color_was_changed = True
+
+    # ROTATION
 
     _multiply_matrices = staticmethod(lambda *matrices: matrices[0] if len(matrices) == 1 else reduce(np.dot, matrices))
 
     def _gen_rotation_matrix(self, rotation: Rotation) -> list[list] | None:
         axis_rotation_matrices = []
+
         if "x" in rotation.axis:
-            axis_rotation_matrices.append(
-                [
-                    [1, 0, 0],
-                    [0, cos(rotation.angle), -sin(rotation.angle)],
-                    [0, sin(rotation.angle), cos(rotation.angle)],
-                ]
-            )
+            axis_rotation_matrices.append([[1, 0, 0], [0, cos(rotation.angle), -sin(rotation.angle)], [0, sin(rotation.angle), cos(rotation.angle)]])
         if "y" in rotation.axis:
-            axis_rotation_matrices.append(
-                [
-                    [cos(rotation.angle), 0, sin(rotation.angle)],
-                    [0, 1, 0],
-                    [-sin(rotation.angle), 0, cos(rotation.angle)],
-                ]
-            )
+            axis_rotation_matrices.append([[cos(rotation.angle), 0, sin(rotation.angle)], [0, 1, 0], [-sin(rotation.angle), 0, cos(rotation.angle)]])
         if "z" in rotation.axis:
-            axis_rotation_matrices.append(
-                [
-                    [cos(rotation.angle), -sin(rotation.angle), 0],
-                    [sin(rotation.angle), cos(rotation.angle), 0],
-                    [0, 0, 1],
-                ]
-            )
+            axis_rotation_matrices.append([[cos(rotation.angle), -sin(rotation.angle), 0], [sin(rotation.angle), cos(rotation.angle), 0], [0, 0, 1]])
+
         return self._multiply_matrices(*axis_rotation_matrices) if axis_rotation_matrices else None
 
     def _rotate_normals(self, norm_x, norm_y, norm_z, rotation: Rotation):
@@ -140,7 +114,18 @@ class Planet:
 
         return rotated_x, rotated_y, rotated_z
 
-    # texture
+    @staticmethod
+    def _update_rotations(rotations: list[Rotation]):
+        for rotation in rotations:
+            if rotation.speed > 0:
+                if rotation.direction == "left":
+                    rotation.angle += rotation.speed
+                else:
+                    rotation.angle -= rotation.speed
+                # stabilize angles between [0, 2pi]
+                rotation.angle %= 2 * pi
+
+    # TEXTURES
 
     def _build_terrain(self, noise_value):
         # Determine color based on standardized terrain thresholds
@@ -149,16 +134,16 @@ class Planet:
                 return terrain.color, 255
         return None, None
 
-    # def _build_atmosphere(self):
-    #     if self.atmosphere:
-    #         return self.atmosphere.color, self.atmosphere.density
-    #     return None, None
-
     def _build_clouds(self, noise_value):
         # Determine if a cloud is displayed based on threshold
         if noise_value > self.clouds.threshold:
             return self.clouds.color, self.clouds.alpha
         return None, None
+
+    # def _build_atmosphere(self):
+    #     if self.atmosphere:
+    #         return self.atmosphere.color, self.atmosphere.density
+    #     return None, None
 
     def _apply_cloud_shadows(self, terrain_surface: Surface, clouds_surface: Surface) -> Surface:
         width, height = terrain_surface.get_size()
@@ -172,13 +157,17 @@ class Planet:
             # Determine cloud position based on shadow offsets
             cloud_x, cloud_y = x - x_shadow_offset, y - y_shadow_offset
 
-            # Only process if shadow position is within cloud surface bounds
+            # only process if shadow position is within cloud surface bounds
             is_in_surface_bounds_x = 0 <= cloud_x < cloud_width
             is_in_surface_bounds_y = 0 <= cloud_y < cloud_height
             if is_in_surface_bounds_x and is_in_surface_bounds_y:
+                # check if a cloud is visible at this pixel
                 cloud_pixel = clouds_surface.get_at((cloud_x, cloud_y))
+                # if a cloud is visible at this pixel
                 if cloud_pixel.a > 0:
+                    # get the terrain pixel position
                     terrain_pixel = terrain_surface.get_at((x, y))
+                    # add the cloud shadow color to the terrain pixel
                     terrain_surface.set_at(
                         (x, y),
                         (
@@ -235,9 +224,10 @@ class Planet:
         texture = self._apply_lighting_to_texture(rgba, lighting_power)
         return texture
 
-    # main
+    # MAIN
 
-    def _get_normals(self, x, y, inv_radius):
+    @staticmethod
+    def _get_normals(x, y, inv_radius):
         return x * inv_radius, y * inv_radius, sqrt(max(0, 1 - (x * x + y * y) * inv_radius * inv_radius))
 
     def _draw_sphere_texture_chunk(
@@ -322,6 +312,16 @@ class Planet:
 
         return texture_data
 
+    @staticmethod
+    def _process_texture_result(future, radius):
+        texture_data = future.result()
+        surface = Surface((2 * radius, 2 * radius), SRCALPHA)
+
+        for pos, color in texture_data.items():
+            surface.set_at(pos, color)
+
+        return surface
+
     def _gen_terrain_and_clouds_surfaces(self):
         with ProcessPoolExecutor() as executor:
 
@@ -336,20 +336,6 @@ class Planet:
                     self.planet_rotation,
                 )
 
-            # # ATMOSPHERE
-            # assert self.atmosphere
-            # atmosphere_future = None
-            # if self.atmosphere:
-            #     atmosphere_future = executor.submit(
-            #         self._draw_sphere_texture_parallel,
-            #         self._atmosphere_radius,
-            #         # self.atmosphere.lod,
-            #         lod=None,
-            #         texture_func=self._build_atmosphere,
-            #         # self.clouds.rotation,
-            #         rotation=None,
-            #     )
-
             # CLOUDS thread
             clouds_future = None
             if self.clouds:
@@ -363,16 +349,24 @@ class Planet:
                     self._cloud_shift_increment,
                 )
 
-            # Collect results
+            # # ATMOSPHERE thread
+            # assert self.atmosphere
+            # atmosphere_future = None
+            # if self.atmosphere:
+            #     atmosphere_future = executor.submit(
+            #         self._draw_sphere_texture_parallel,
+            #         self._atmosphere_radius,
+            #         # self.atmosphere.lod,
+            #         lod=None,
+            #         texture_func=self._build_atmosphere,
+            #         # self.clouds.rotation,
+            #         rotation=None,
+            #     )
 
+            # COLLECT RESULTS
             terrain_surface = None
             if terrain_future:
                 terrain_surface = self._process_texture_result(terrain_future, self.radius)
-
-            # assert atmosphere_future
-            # atmosphere_surface = None
-            # if atmosphere_future:
-            #     atmosphere_surface = self._process_texture_result(atmosphere_future, self._atmosphere_radius)
 
             clouds_surface = None
             if clouds_future:
@@ -380,36 +374,32 @@ class Planet:
             if clouds_surface and terrain_surface:
                 terrain_surface = self._apply_cloud_shadows(terrain_surface, clouds_surface)
 
-        return terrain_surface, None, clouds_surface
+            # assert atmosphere_future
+            # atmosphere_surface = None
+            # if atmosphere_future:
+            #     atmosphere_surface = self._process_texture_result(atmosphere_future, self._atmosphere_radius)
 
-    def _process_texture_result(self, future, radius):
-        texture_data = future.result()
-        surface = Surface((2 * radius, 2 * radius), SRCALPHA)
-
-        for pos, color in texture_data.items():
-            surface.set_at(pos, color)
-
-        return surface
+        return terrain_surface, clouds_surface
 
     def _blit_surface(self, screen, surface, x, y, radius):
         screen.blit(surface, (x - radius, y - radius))
 
     def draw(self, screen: Surface):
-        terrain_surface, atmosphere_surface, clouds_surface = self._gen_terrain_and_clouds_surfaces()
+        terrain_surface, clouds_surface = self._gen_terrain_and_clouds_surfaces()
         rotations = []
 
         if terrain_surface:
             rotations.append(self.planet_rotation)
             self._blit_surface(screen, terrain_surface, self.position.x, self.position.y, self.radius)
 
-        if atmosphere_surface:
-            # TODO: atmospheric affects: new sphere with gradient opacity
-            # - perhaps even scattering calculated from the light direction
-            self._blit_surface(screen, atmosphere_surface, self.position.x, self.position.y, self._atmosphere_radius)
-
         if clouds_surface:
             rotations.append(self.clouds.rotation)
             self._blit_surface(screen, clouds_surface, self.position.x, self.position.y, self._cloud_radius)
+
+        # if atmosphere_surface:
+        #     # TODO: atmospheric affects: new sphere with gradient opacity
+        #     # - perhaps even scattering calculated from the light direction
+        #     self._blit_surface(screen, atmosphere_surface, self.position.x, self.position.y, self._atmosphere_radius)
 
         # Update lighting and rotations
         self._update_lighting()
