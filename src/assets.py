@@ -1,6 +1,6 @@
 from src.universe import Planet, DistantStar
 
-from src.utils import PlanetConfig, Vector, Lighting, Rotation, Terrain, Clouds, RGB, LevelOfDetail
+from src.utils import PlanetConfig, Vector, Lighting, Rotation, Terrain, Clouds, RGB, LevelOfDetail  # Atmosphere
 
 from src.config import screen_width, screen_height
 from src.config import base_radius, base_position, base_lighting, base_planet_rotation
@@ -27,9 +27,9 @@ planets = [
             radius=base_radius,
             position=base_position,
             terrains=terrains.get("earth"),
-            terrain_lod=LevelOfDetail(3, 1.1),
+            terrain_lod=LevelOfDetail(1.4, 3),
             clouds=clouds.get("earth"),
-            wind_speed=0.01,
+            wind_speed=0.006,
             color_mode="solid",
             lighting=base_lighting,
             planet_rotation=Rotation(direction="left", speed=0.003, axis=["x", "y"]),
@@ -42,8 +42,7 @@ planets = [
             radius=base_radius,
             position=base_position,
             terrains=terrains.get("moon"),
-            terrain_lod=LevelOfDetail(),
-            clouds=None,
+            terrain_lod=LevelOfDetail(4),
             color_mode="solid",
             lighting=base_lighting,
             planet_rotation=Rotation(direction="left", speed=0.02, axis=["y"]),
@@ -65,7 +64,7 @@ planets = [
         ),
     ),
     Planet(
-        # 3
+        # 3h
         name="Eve",
         config=PlanetConfig(
             radius=base_radius,
@@ -73,8 +72,8 @@ planets = [
             terrains=terrains.get("eve"),
             terrain_lod=LevelOfDetail(),
             clouds=clouds.get("eve"),
-            wind_speed=0.03,
-            color_mode="solid",
+            wind_speed=0.02,
+            color_mode="change",
             lighting=base_lighting,
             planet_rotation=Rotation(direction="right", speed=0.01, axis=["x"]),
         ),
@@ -92,6 +91,22 @@ planets = [
             planet_rotation=base_planet_rotation,
         ),
     ),
+    Planet(
+        # 5
+        name="Atollo",
+        config=PlanetConfig(
+            radius=base_radius,
+            position=base_position,
+            terrains=terrains.get("atollo"),
+            terrain_lod=LevelOfDetail(4, 1),
+            # atmosphere=Atmosphere(color=RGB(255, 255, 255), density=255, height=2),
+            clouds=clouds.get("atollo"),
+            wind_speed=0.003,
+            color_mode="solid",
+            lighting=base_lighting,
+            planet_rotation=Rotation(direction="left", speed=0.003, axis=["x", "y"]),
+        ),
+    ),
 ]
 
 
@@ -107,12 +122,12 @@ def choose_planet():
 
 
 # planet_asset = choose_planet()
-# planet_assets = [planet_asset]
+# planetearth_assets = [planet_asset]
 
 # with open("last_planet.txt", mode="w", encoding="utf-8") as f:
 #     f.write(planet_asset.name)
 
-planets = [planets[1]]
+planets = [planets[4]]
 
 
 assets = dict(
