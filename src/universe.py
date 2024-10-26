@@ -32,6 +32,9 @@ class Planet:
         self.terrains = config.terrains
         self.terrain_lod = config.terrain_lod
         self.color_mode = config.color_mode
+        # # atmosphere
+        # self.atmosphere = config.atmosphere
+        # self._atmosphere_radius = int(self.radius * self.atmosphere.height) if self.atmosphere else None
         # clouds
         self.clouds = config.clouds
         self._cloud_radius = int(self.radius * self.clouds.height) if self.clouds else None
@@ -146,6 +149,11 @@ class Planet:
                 return terrain.color, 255
         return None, None
 
+    # def _build_atmosphere(self):
+    #     if self.atmosphere:
+    #         return self.atmosphere.color, self.atmosphere.density
+    #     return None, None
+
     def _build_clouds(self, noise_value):
         # Determine if a cloud is displayed based on threshold
         if noise_value > self.clouds.threshold:
@@ -153,33 +161,33 @@ class Planet:
         return None, None
 
     def _apply_cloud_shadows(self, terrain_surface: Surface, clouds_surface: Surface) -> Surface:
-        shadow_intensity = 0.6  # Shadow multiplier to darken color (1 is fully transparent)
-        shadow_strength = 3  # Scale how far shadows move with light BUG: has to be set below pi for some reason ??
-
         width, height = terrain_surface.get_size()
+        cloud_width, cloud_height = clouds_surface.get_size()
 
-        # Get the current lighting direction
-        light_dir_x = self.lighting._direction.x - 2
-        light_dir_y = self.lighting._direction.y - 1
-
-        x_shadow_offset = int(light_dir_x * shadow_strength)
-        y_shadow_offset = int(light_dir_y * shadow_strength)
+        # Calculate shadow offsets based on light direction
+        x_shadow_offset = int(self.lighting._direction.x * self.clouds._shadow_tilt)
+        y_shadow_offset = int(self.lighting._direction.y * self.clouds._shadow_tilt)
 
         for x, y in product(range(width), range(height)):
-            # Apply shadow offsets to cloud position
-            cloud_x = x - x_shadow_offset
-            cloud_y = y - y_shadow_offset
+            # Determine cloud position based on shadow offsets
+            cloud_x, cloud_y = x - x_shadow_offset, y - y_shadow_offset
 
-            cloud_pixel = clouds_surface.get_at((cloud_x, cloud_y))
-            if cloud_pixel.a > 0:  # There is a cloud at this location
-                terrain_pixel = terrain_surface.get_at((x, y))
-
-                # Apply shadow by darkening the terrain color
-                r = int(terrain_pixel.r * shadow_intensity)
-                g = int(terrain_pixel.g * shadow_intensity)
-                b = int(terrain_pixel.b * shadow_intensity)
-
-                terrain_surface.set_at((x, y), (r, g, b, terrain_pixel.a))
+            # Only process if shadow position is within cloud surface bounds
+            is_in_surface_bounds_x = 0 <= cloud_x < cloud_width
+            is_in_surface_bounds_y = 0 <= cloud_y < cloud_height
+            if is_in_surface_bounds_x and is_in_surface_bounds_y:
+                cloud_pixel = clouds_surface.get_at((cloud_x, cloud_y))
+                if cloud_pixel.a > 0:
+                    terrain_pixel = terrain_surface.get_at((x, y))
+                    terrain_surface.set_at(
+                        (x, y),
+                        (
+                            int(terrain_pixel.r * self.clouds.shadow_alpha),
+                            int(terrain_pixel.g * self.clouds.shadow_alpha),
+                            int(terrain_pixel.b * self.clouds.shadow_alpha),
+                            terrain_pixel.a,
+                        ),
+                    )
 
         return terrain_surface
 
@@ -199,13 +207,18 @@ class Planet:
             * lod.weight
         )
 
-    def _gen_texture(self, normals: tuple, lighting_power: float, lod: LevelOfDetail, gen_color: Callable, shift: float = 0):
-        noise = self._gen_noise(normals, lod, shift)
+    def _gen_texture_color(self, normals: tuple, lod: LevelOfDetail, gen_color: Callable, shift: float = 0):
+        if lod:
+            noise = self._gen_noise(normals, lod, shift)
+            # Normalize range from [-1, 1] to [0, 1]
+            noise_value = (noise + 1) / 2
+            return gen_color(noise_value)
+        else:
+            return gen_color()
 
-        # Normalize range from [-1, 1] to [0, 1]
-        noise_value = (noise + 1) / 2
-
-        color, alpha = gen_color(noise_value)
+    @staticmethod
+    def _apply_lighting_to_texture(rgba, lighting_power: float):
+        color, alpha = rgba
 
         if color:
             # Mix color with lighting for final texture
@@ -216,6 +229,11 @@ class Planet:
             return (r, g, b, alpha)
         else:
             return (0, 0, 0, 0)
+
+    def _gen_texture(self, normals: tuple, lighting_power: float, lod: LevelOfDetail, gen_color: Callable, shift: float = 0):
+        rgba = self._gen_texture_color(normals, lod, gen_color, shift)
+        texture = self._apply_lighting_to_texture(rgba, lighting_power)
+        return texture
 
     # main
 
@@ -236,24 +254,27 @@ class Planet:
         y_start: int,
         y_end: int,
     ):
-        lighting_directions = self._get_inverted_lighting_normals()
-
         texture_data = {}
+        lighting_directions = self._get_inverted_lighting_normals()
 
         for x, y in product(range(x_start, x_end), range(y_start, y_end)):
             if (x * x) + (y * y) <= radius_sq:
                 norm_x, norm_y, norm_z = self._get_normals(x, y, inv_radius)
+
                 lighting_power = self._compute_lighting((norm_x, norm_y, norm_z), lighting_directions)
-                rotated_x, rotated_y, rotated_z = self._rotate_normals(norm_x, norm_y, norm_z, rotation=rotation)
+
+                if rotation:
+                    norm_x, norm_y, norm_z = self._rotate_normals(norm_x, norm_y, norm_z, rotation=rotation)
+
                 texture = self._gen_texture(
-                    normals=(rotated_x, rotated_y, rotated_z),
+                    normals=(norm_x, norm_y, norm_z),
                     lighting_power=lighting_power,
                     shift=shift,
                     lod=lod,
                     gen_color=texture_func,
                 )
-                texture_data[(x + radius, y + radius)] = texture
 
+                texture_data[(x + radius, y + radius)] = texture
         return texture_data
 
     def _draw_sphere_texture_parallel(
@@ -303,8 +324,33 @@ class Planet:
 
     def _gen_terrain_and_clouds_surfaces(self):
         with ProcessPoolExecutor() as executor:
-            future_terrain = executor.submit(self._draw_sphere_texture_parallel, self.radius, self.terrain_lod, self._build_terrain, self.planet_rotation)
 
+            # TERRAIN thread
+            terrain_future = None
+            if self.terrains:
+                terrain_future = executor.submit(
+                    self._draw_sphere_texture_parallel,
+                    self.radius,
+                    self.terrain_lod,
+                    self._build_terrain,
+                    self.planet_rotation,
+                )
+
+            # # ATMOSPHERE
+            # assert self.atmosphere
+            # atmosphere_future = None
+            # if self.atmosphere:
+            #     atmosphere_future = executor.submit(
+            #         self._draw_sphere_texture_parallel,
+            #         self._atmosphere_radius,
+            #         # self.atmosphere.lod,
+            #         lod=None,
+            #         texture_func=self._build_atmosphere,
+            #         # self.clouds.rotation,
+            #         rotation=None,
+            #     )
+
+            # CLOUDS thread
             clouds_future = None
             if self.clouds:
                 self._cloud_shift_increment += self.wind_speed
@@ -318,17 +364,23 @@ class Planet:
                 )
 
             # Collect results
-            terrain_surface = self._process_texture_result(future_terrain, self.radius)
+
+            terrain_surface = None
+            if terrain_future:
+                terrain_surface = self._process_texture_result(terrain_future, self.radius)
+
+            # assert atmosphere_future
+            # atmosphere_surface = None
+            # if atmosphere_future:
+            #     atmosphere_surface = self._process_texture_result(atmosphere_future, self._atmosphere_radius)
 
             clouds_surface = None
             if clouds_future:
                 clouds_surface = self._process_texture_result(clouds_future, self._cloud_radius)
-
-            # Now that both surfaces are created, apply cloud shadows to terrain
             if clouds_surface and terrain_surface:
                 terrain_surface = self._apply_cloud_shadows(terrain_surface, clouds_surface)
 
-        return terrain_surface, clouds_surface
+        return terrain_surface, None, clouds_surface
 
     def _process_texture_result(self, future, radius):
         texture_data = future.result()
@@ -343,13 +395,18 @@ class Planet:
         screen.blit(surface, (x - radius, y - radius))
 
     def draw(self, screen: Surface):
-        terrain_surface, clouds_surface = self._gen_terrain_and_clouds_surfaces()
-        rotations = [self.planet_rotation]
+        terrain_surface, atmosphere_surface, clouds_surface = self._gen_terrain_and_clouds_surfaces()
+        rotations = []
 
-        # TODO: atmospheric affects: new sphere with gradient opacity
-        # - perhaps even scattering calculated from the light direction
+        if terrain_surface:
+            rotations.append(self.planet_rotation)
+            self._blit_surface(screen, terrain_surface, self.position.x, self.position.y, self.radius)
 
-        self._blit_surface(screen, terrain_surface, self.position.x, self.position.y, self.radius)
+        if atmosphere_surface:
+            # TODO: atmospheric affects: new sphere with gradient opacity
+            # - perhaps even scattering calculated from the light direction
+            self._blit_surface(screen, atmosphere_surface, self.position.x, self.position.y, self._atmosphere_radius)
+
         if clouds_surface:
             rotations.append(self.clouds.rotation)
             self._blit_surface(screen, clouds_surface, self.position.x, self.position.y, self._cloud_radius)

@@ -111,6 +111,15 @@ class LevelOfDetail:
     weight: float = 0.5
 
 
+# @dataclass
+# class Atmosphere:
+#     color: RGB
+#     density: int  # alpha
+#     height: int
+#     lod: LevelOfDetail = LevelOfDetail
+#     rotation: Rotation = Rotation
+
+
 @dataclass
 class Clouds:
     height: int = 1.1
@@ -119,11 +128,8 @@ class Clouds:
     threshold: int = 0.6
     lod: LevelOfDetail = LevelOfDetail
     rotation: Rotation = Rotation
-
-    def __post_init__(self):
-        if self.height < 1.1:
-            print("\nWARNING: cloud.height reset to at least 1.1 due to cloud shadows bug in current implementation!\n")
-            self.height = 1.1
+    shadow_alpha: float = 0.6
+    _shadow_tilt = 5
 
 
 @dataclass
@@ -132,6 +138,7 @@ class PlanetConfig:
     position: Vector = Vector(x=10, y=10)
     terrains: list[Terrain] = None
     terrain_lod: LevelOfDetail = LevelOfDetail
+    # atmosphere: Atmosphere = None
     clouds: Clouds = None
     wind_speed: float = 0.01
     color_mode: Literal["solid", "change"] = "solid"
