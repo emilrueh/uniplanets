@@ -111,13 +111,14 @@ class LevelOfDetail:
     weight: float = 0.5
 
 
-# @dataclass
-# class Atmosphere:
-#     color: RGB
-#     density: int  # alpha
-#     height: int
-#     lod: LevelOfDetail = LevelOfDetail
-#     rotation: Rotation = Rotation
+@dataclass
+class Atmosphere:
+    color: RGB
+    density: float  # alpha
+    height: float = 1.2
+    _radius: int = None
+    lod: LevelOfDetail = None
+    rotation: Rotation = Rotation
 
 
 @dataclass
@@ -138,7 +139,7 @@ class PlanetConfig:
     position: Vector = Vector(x=10, y=10)
     terrains: list[Terrain] = None
     terrain_lod: LevelOfDetail = LevelOfDetail
-    # atmosphere: Atmosphere = None
+    atmosphere: Atmosphere = None
     clouds: Clouds = None
     wind_speed: float = 0.01
     color_mode: Literal["solid", "change"] = "solid"
@@ -154,3 +155,6 @@ class PlanetConfig:
                 Terrain(name="mountains", color=RGB(112, 83, 65), threshold=0.8),
                 Terrain(name="glacier", color=RGB(255, 255, 255), threshold=float("inf")),
             ]
+
+        if self.atmosphere and not self.atmosphere._radius:
+            self.atmosphere._radius = int(self.radius * self.atmosphere.height)

@@ -5,7 +5,7 @@ import random
 
 # display settings
 # resolution, upscale = "1920x1080", 0.1
-resolution, upscale = "1000x1000", 0.1
+resolution, upscale = "1000x1000", 0.2
 fps = 30
 
 screen_width, screen_height = int(int(resolution.split("x")[0]) * upscale), int(int(resolution.split("x")[-1]) * upscale)
@@ -59,10 +59,11 @@ clouds = {
     "earth": Clouds(
         height=1.03,
         color=RGB(255, 255, 255),
-        alpha=240,
+        alpha=200,
         threshold=0.6,
         lod=LevelOfDetail(7, 2),
         rotation=Rotation(direction="left", speed=0.001, axis=["y", "z"]),
+        shadow_alpha=0.7,
     ),
     "mars": Clouds(
         height=1.04,
