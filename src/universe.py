@@ -33,8 +33,7 @@ class Planet:
         self.terrain_lod = config.terrain_lod
         self.color_mode = config.color_mode
         # # atmosphere
-        # self.atmosphere = config.atmosphere
-        # self._atmosphere_radius = int(self.radius * self.atmosphere.height) if self.atmosphere else None
+        self.atmosphere = config.atmosphere
         # clouds
         self.clouds = config.clouds
         self._cloud_radius = int(self.radius * self.clouds.height) if self.clouds else None
@@ -127,23 +126,35 @@ class Planet:
 
     # TEXTURES
 
-    def _build_terrain(self, noise_value):
-        # Determine color based on standardized terrain thresholds
+    def _gen_texture_color(self, normals: tuple, lod: LevelOfDetail, gen_color: Callable, shift: float = 0):
+        if lod:
+            noise = self._gen_noise(normals, lod, shift)
+            # Normalize range from [-1, 1] to [0, 1]
+            noise_value = (noise + 1) / 2
+            return gen_color(noise_value=noise_value)
+        else:
+            return gen_color(normals=normals)
+
+    def _build_atmosphere(self, **kwargs):
+        normals = kwargs.get("normals")
+        _, _, norm_z = normals
+        # Compute alpha based on norm_z
+        alpha = 255 * self.atmosphere.density * norm_z
+        alpha = max(0, min(255, int(alpha)))
+        return self.atmosphere.color, alpha
+
+    def _build_terrain(self, **kwargs):
+        noise_value = kwargs.get("noise_value")
         for terrain in self.terrains:
             if noise_value <= terrain.threshold:
                 return terrain.color, 255
         return None, None
 
-    def _build_clouds(self, noise_value):
-        # Determine if a cloud is displayed based on threshold
+    def _build_clouds(self, **kwargs):
+        noise_value = kwargs.get("noise_value")
         if noise_value > self.clouds.threshold:
             return self.clouds.color, self.clouds.alpha
         return None, None
-
-    # def _build_atmosphere(self):
-    #     if self.atmosphere:
-    #         return self.atmosphere.color, self.atmosphere.density
-    #     return None, None
 
     def _apply_cloud_shadows(self, terrain_surface: Surface, clouds_surface: Surface) -> Surface:
         width, height = terrain_surface.get_size()
@@ -196,14 +207,14 @@ class Planet:
             * lod.weight
         )
 
-    def _gen_texture_color(self, normals: tuple, lod: LevelOfDetail, gen_color: Callable, shift: float = 0):
-        if lod:
-            noise = self._gen_noise(normals, lod, shift)
-            # Normalize range from [-1, 1] to [0, 1]
-            noise_value = (noise + 1) / 2
-            return gen_color(noise_value)
-        else:
-            return gen_color()
+    # def _gen_texture_color(self, normals: tuple, lod: LevelOfDetail, gen_color: Callable, shift: float = 0):
+    #     if lod:
+    #         noise = self._gen_noise(normals, lod, shift)
+    #         # Normalize range from [-1, 1] to [0, 1]
+    #         noise_value = (noise + 1) / 2
+    #         return gen_color(noise_value)
+    #     else:
+    #         return gen_color()
 
     @staticmethod
     def _apply_lighting_to_texture(rgba, lighting_power: float):
@@ -349,19 +360,19 @@ class Planet:
                     self._cloud_shift_increment,
                 )
 
-            # # ATMOSPHERE thread
+            # ATMOSPHERE thread
             # assert self.atmosphere
-            # atmosphere_future = None
-            # if self.atmosphere:
-            #     atmosphere_future = executor.submit(
-            #         self._draw_sphere_texture_parallel,
-            #         self._atmosphere_radius,
-            #         # self.atmosphere.lod,
-            #         lod=None,
-            #         texture_func=self._build_atmosphere,
-            #         # self.clouds.rotation,
-            #         rotation=None,
-            #     )
+            atmosphere_future = None
+            if self.atmosphere:
+                atmosphere_future = executor.submit(
+                    self._draw_sphere_texture_parallel,
+                    self.atmosphere._radius,
+                    self.atmosphere.lod,
+                    # self.clouds.lod,
+                    texture_func=self._build_atmosphere,
+                    # self.clouds.rotation,
+                    rotation=None,
+                )
 
             # COLLECT RESULTS
             terrain_surface = None
@@ -375,17 +386,17 @@ class Planet:
                 terrain_surface = self._apply_cloud_shadows(terrain_surface, clouds_surface)
 
             # assert atmosphere_future
-            # atmosphere_surface = None
-            # if atmosphere_future:
-            #     atmosphere_surface = self._process_texture_result(atmosphere_future, self._atmosphere_radius)
+            atmosphere_surface = None
+            if atmosphere_future:
+                atmosphere_surface = self._process_texture_result(atmosphere_future, self.atmosphere._radius)
 
-        return terrain_surface, clouds_surface
+        return terrain_surface, clouds_surface, atmosphere_surface
 
     def _blit_surface(self, screen, surface, x, y, radius):
         screen.blit(surface, (x - radius, y - radius))
 
     def draw(self, screen: Surface):
-        terrain_surface, clouds_surface = self._gen_terrain_and_clouds_surfaces()
+        terrain_surface, clouds_surface, atmosphere_surface = self._gen_terrain_and_clouds_surfaces()
         rotations = []
 
         if terrain_surface:
@@ -396,10 +407,10 @@ class Planet:
             rotations.append(self.clouds.rotation)
             self._blit_surface(screen, clouds_surface, self.position.x, self.position.y, self._cloud_radius)
 
-        # if atmosphere_surface:
-        #     # TODO: atmospheric affects: new sphere with gradient opacity
-        #     # - perhaps even scattering calculated from the light direction
-        #     self._blit_surface(screen, atmosphere_surface, self.position.x, self.position.y, self._atmosphere_radius)
+        if atmosphere_surface:
+            # TODO: atmospheric affects: new sphere with gradient opacity
+            # - perhaps even scattering calculated from the light direction
+            self._blit_surface(screen, atmosphere_surface, self.position.x, self.position.y, self.atmosphere._radius)
 
         # Update lighting and rotations
         self._update_lighting()
