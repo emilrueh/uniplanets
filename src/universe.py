@@ -32,8 +32,14 @@ class Planet:
         self.terrains = config.terrains
         self.terrain_lod = config.terrain_lod
         self.color_mode = config.color_mode
-        # # atmosphere
+        # atmosphere
         self.atmosphere = config.atmosphere
+        if self.atmosphere:
+            self.atmosphere._gradient_falloff = 1
+            self.atmosphere._threshold = self.atmosphere.height - 1
+            self.atmosphere._gradient_midpoint = (self.atmosphere._threshold + 1) / 2
+            # print("threshold:", self.atmosphere._threshold)
+            # print("midpoint:", self.atmosphere._gradient_midpoint)
         # clouds
         self.clouds = config.clouds
         self._cloud_radius = int(self.radius * self.clouds.height) if self.clouds else None
@@ -138,9 +144,23 @@ class Planet:
     def _build_atmosphere(self, **kwargs):
         normals = kwargs.get("normals")
         _, _, norm_z = normals
-        # Compute alpha based on norm_z
-        alpha = 255 * self.atmosphere.density * norm_z
-        alpha = max(0, min(255, int(alpha)))
+
+        # Determine if within the active atmosphere zone
+        if norm_z > self.atmosphere._threshold:
+            # Adjust opacity, peaking at maximum density around midpoint
+            if norm_z < self.atmosphere._gradient_midpoint:
+                adjusted_alpha = (
+                    255
+                    * self.atmosphere.density
+                    * ((norm_z - self.atmosphere._threshold) / (self.atmosphere._gradient_midpoint - self.atmosphere._threshold))
+                    ** self.atmosphere._gradient_falloff
+                )
+            else:
+                adjusted_alpha = 255 * self.atmosphere.density * ((1 - norm_z) / (1 - self.atmosphere._gradient_midpoint)) ** self.atmosphere._gradient_falloff
+            alpha = max(0, min(255, int(adjusted_alpha)))
+        else:
+            alpha = 0
+
         return self.atmosphere.color, alpha
 
     def _build_terrain(self, **kwargs):
