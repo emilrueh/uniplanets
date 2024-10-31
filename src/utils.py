@@ -117,8 +117,11 @@ class Atmosphere:
     density: float  # alpha
     height: float = 1.2
     _radius: int = None
-    lod: LevelOfDetail = None
-    rotation: Rotation = Rotation
+
+    def __post_init__(self):
+        self._gradient_falloff = 1
+        self._threshold = self.height - 1
+        self._gradient_midpoint = (self._threshold + 1) / 2
 
 
 @dataclass
