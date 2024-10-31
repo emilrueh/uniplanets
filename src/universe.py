@@ -34,12 +34,8 @@ class Planet:
         self.color_mode = config.color_mode
         # atmosphere
         self.atmosphere = config.atmosphere
-        if self.atmosphere:
-            self.atmosphere._gradient_falloff = 1
-            self.atmosphere._threshold = self.atmosphere.height - 1
-            self.atmosphere._gradient_midpoint = (self.atmosphere._threshold + 1) / 2
-            # print("threshold:", self.atmosphere._threshold)
-            # print("midpoint:", self.atmosphere._gradient_midpoint)
+        # print("threshold:", self.atmosphere._threshold)
+        # print("midpoint:", self.atmosphere._gradient_midpoint)
         # clouds
         self.clouds = config.clouds
         self._cloud_radius = int(self.radius * self.clouds.height) if self.clouds else None
@@ -132,7 +128,7 @@ class Planet:
 
     # TEXTURES
 
-    def _gen_texture_color(self, normals: tuple, lod: LevelOfDetail, gen_color: Callable, shift: float = 0):
+    def _gen_texture_color(self, normals: tuple, gen_color: Callable, lod: LevelOfDetail, shift: float = 0):
         if lod:
             noise = self._gen_noise(normals, lod, shift)
             # Normalize range from [-1, 1] to [0, 1]
@@ -250,8 +246,8 @@ class Planet:
         else:
             return (0, 0, 0, 0)
 
-    def _gen_texture(self, normals: tuple, lighting_power: float, lod: LevelOfDetail, gen_color: Callable, shift: float = 0):
-        rgba = self._gen_texture_color(normals, lod, gen_color, shift)
+    def _gen_texture(self, normals: tuple, lighting_power: float, gen_color: Callable, lod: LevelOfDetail, shift: float = 0):
+        rgba = self._gen_texture_color(normals, gen_color, lod, shift)
         texture = self._apply_lighting_to_texture(rgba, lighting_power)
         return texture
 
@@ -266,8 +262,8 @@ class Planet:
         radius: int,
         radius_sq: int,
         inv_radius: float,
-        lod: LevelOfDetail,
         texture_func: Callable,
+        lod: LevelOfDetail,
         rotation: Rotation,
         shift: int,
         x_start: int,
@@ -290,9 +286,9 @@ class Planet:
                 texture = self._gen_texture(
                     normals=(norm_x, norm_y, norm_z),
                     lighting_power=lighting_power,
-                    shift=shift,
-                    lod=lod,
                     gen_color=texture_func,
+                    lod=lod,
+                    shift=shift,
                 )
 
                 texture_data[(x + radius, y + radius)] = texture
@@ -301,9 +297,9 @@ class Planet:
     def _draw_sphere_texture_parallel(
         self,
         radius: int,
-        lod: LevelOfDetail,
         texture_func: Callable,
-        rotation: Rotation,
+        lod: LevelOfDetail = None,
+        rotation: Rotation = None,
         shift: int = 0,
     ):
         num_chunks = 12  # Set number of chunks equal to the number of CPU cores
@@ -326,8 +322,8 @@ class Planet:
                         radius,
                         radius_sq,
                         inv_radius,
-                        lod,
                         texture_func,
+                        lod,
                         rotation,
                         shift,
                         x_start,
@@ -356,45 +352,40 @@ class Planet:
     def _gen_terrain_and_clouds_surfaces(self):
         with ProcessPoolExecutor() as executor:
 
-            # TERRAIN thread
+            # SUBMIT
+
             terrain_future = None
             if self.terrains:
                 terrain_future = executor.submit(
                     self._draw_sphere_texture_parallel,
                     self.radius,
-                    self.terrain_lod,
                     self._build_terrain,
+                    self.terrain_lod,
                     self.planet_rotation,
                 )
 
-            # CLOUDS thread
             clouds_future = None
             if self.clouds:
                 self._cloud_shift_increment += self.wind_speed
                 clouds_future = executor.submit(
                     self._draw_sphere_texture_parallel,
                     self._cloud_radius,
-                    self.clouds.lod,
                     self._build_clouds,
+                    self.clouds.lod,
                     self.clouds.rotation,
                     self._cloud_shift_increment,
                 )
 
-            # ATMOSPHERE thread
-            # assert self.atmosphere
             atmosphere_future = None
             if self.atmosphere:
                 atmosphere_future = executor.submit(
                     self._draw_sphere_texture_parallel,
                     self.atmosphere._radius,
-                    self.atmosphere.lod,
-                    # self.clouds.lod,
-                    texture_func=self._build_atmosphere,
-                    # self.clouds.rotation,
-                    rotation=None,
+                    self._build_atmosphere,
                 )
 
-            # COLLECT RESULTS
+            # COLLECT
+
             terrain_surface = None
             if terrain_future:
                 terrain_surface = self._process_texture_result(terrain_future, self.radius)
@@ -402,10 +393,9 @@ class Planet:
             clouds_surface = None
             if clouds_future:
                 clouds_surface = self._process_texture_result(clouds_future, self._cloud_radius)
-            if clouds_surface and terrain_surface:
+            if clouds_surface and terrain_surface:  # cloud shadows
                 terrain_surface = self._apply_cloud_shadows(terrain_surface, clouds_surface)
 
-            # assert atmosphere_future
             atmosphere_surface = None
             if atmosphere_future:
                 atmosphere_surface = self._process_texture_result(atmosphere_future, self.atmosphere._radius)
@@ -416,23 +406,45 @@ class Planet:
         screen.blit(surface, (x - radius, y - radius))
 
     def draw(self, screen: Surface):
-        terrain_surface, clouds_surface, atmosphere_surface = self._gen_terrain_and_clouds_surfaces()
         rotations = []
+
+        # BUILD
+
+        terrain_surface, clouds_surface, atmosphere_surface = self._gen_terrain_and_clouds_surfaces()
+
+        # DRAW
 
         if terrain_surface:
             rotations.append(self.planet_rotation)
-            self._blit_surface(screen, terrain_surface, self.position.x, self.position.y, self.radius)
+            self._blit_surface(
+                screen,
+                terrain_surface,
+                self.position.x,
+                self.position.y,
+                self.radius,
+            )
 
         if clouds_surface:
             rotations.append(self.clouds.rotation)
-            self._blit_surface(screen, clouds_surface, self.position.x, self.position.y, self._cloud_radius)
+            self._blit_surface(
+                screen,
+                clouds_surface,
+                self.position.x,
+                self.position.y,
+                self._cloud_radius,
+            )
 
         if atmosphere_surface:
-            # TODO: atmospheric affects: new sphere with gradient opacity
-            # - perhaps even scattering calculated from the light direction
-            self._blit_surface(screen, atmosphere_surface, self.position.x, self.position.y, self.atmosphere._radius)
+            self._blit_surface(
+                screen,
+                atmosphere_surface,
+                self.position.x,
+                self.position.y,
+                self.atmosphere._radius,
+            )
 
-        # Update lighting and rotations
+        # POST
+
         self._update_lighting()
         self._update_rotations(rotations)
 
